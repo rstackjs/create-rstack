@@ -371,7 +371,7 @@ export async function create({
         placeholder: `${name.toLowerCase()}-project`,
         defaultValue: `${name.toLowerCase()}-project`,
         validate(value) {
-          if (value.length === 0) {
+          if (value?.length === 0) {
             return 'Project name is required';
           }
         },
