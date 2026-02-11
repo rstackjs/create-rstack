@@ -808,9 +808,17 @@ export function mergeAgentsFiles(agentsFiles: string[]): string {
       result.push(content);
 
       if (nextContent) {
-        const currentLines = content.split('\n');
-        const lastLine = currentLines[currentLines.length - 1];
-        const nextFirstLine = nextContent.split('\n')[0];
+        const lastNewLineIndex = content.lastIndexOf('\n');
+        const lastLine =
+          lastNewLineIndex === -1
+            ? content
+            : content.substring(lastNewLineIndex + 1);
+
+        const firstNewLineIndex = nextContent.indexOf('\n');
+        const nextFirstLine =
+          firstNewLineIndex === -1
+            ? nextContent
+            : nextContent.substring(0, firstNewLineIndex);
 
         // If both blocks are part of an unordered list (starting with '- '),
         // skip the newline to merge them.
