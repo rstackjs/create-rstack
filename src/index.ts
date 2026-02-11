@@ -801,8 +801,24 @@ export function mergeAgentsFiles(agentsFiles: string[]): string {
   for (const [, section] of Object.entries(allSections)) {
     result.push(`${'#'.repeat(section.level)} ${section.title}`);
     result.push('');
-    for (const content of section.contents) {
+    for (let i = 0; i < section.contents.length; i++) {
+      const content = section.contents[i];
+      const nextContent = section.contents[i + 1];
+
       result.push(content);
+
+      if (nextContent) {
+        const currentLines = content.split('\n');
+        const lastLine = currentLines[currentLines.length - 1];
+        const nextFirstLine = nextContent.split('\n')[0];
+
+        // If both blocks are part of an unordered list (starting with '- '),
+        // skip the newline to merge them.
+        if (lastLine.startsWith('- ') && nextFirstLine.startsWith('- ')) {
+          continue;
+        }
+      }
+
       result.push('');
     }
   }

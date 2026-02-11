@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assert, beforeEach, expect, test } from '@rstest/core';
-import { create } from '../src';
+import { create, mergeAgentsFiles } from '../src';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, 'fixtures', 'agents-md');
@@ -231,5 +231,99 @@ test('should merge top-level sections from AGENTS.md files', async () => {
     - This is vanilla template specific content
     - Only available in vanilla template
     "
+  `);
+});
+
+test('mergeAgentsFiles should handle unordered lists without extra newline', () => {
+  const file1 = `
+## Tools
+
+- item 1
+- item 2
+`;
+  const file2 = `
+## Tools
+
+- item 3
+`;
+
+  const merged = mergeAgentsFiles([file1, file2]);
+
+  expect(merged).toMatchInlineSnapshot(`
+    "## Tools
+
+    - item 1
+    - item 2
+    - item 3"
+  `);
+});
+
+test('mergeAgentsFiles should still add newline for non-list content', () => {
+  const file1 = `
+## Tools
+
+Some intro text.
+`;
+  const file2 = `
+## Tools
+
+More text.
+`;
+
+  const merged = mergeAgentsFiles([file1, file2]);
+
+  expect(merged).toMatchInlineSnapshot(`
+    "## Tools
+
+    Some intro text.
+
+    More text."
+  `);
+});
+
+test('mergeAgentsFiles should not skip newline for horizontal rules (---)', () => {
+  const file1 = `
+## Tools
+
+---
+`;
+  const file2 = `
+## Tools
+
+- item 1
+`;
+
+  const merged = mergeAgentsFiles([file1, file2]);
+
+  expect(merged).toMatchInlineSnapshot(`
+    "## Tools
+
+    ---
+
+    - item 1"
+  `);
+});
+
+test('mergeAgentsFiles should add newline when paragraph is followed by list', () => {
+  const file1 = `
+## Tools
+
+Some intro text.
+`;
+  const file2 = `
+## Tools
+
+- item 1
+`;
+
+  const merged = mergeAgentsFiles([file1, file2]);
+
+  // Revised requirement: Paragraph followed by list SHOULD have a newline.
+  expect(merged).toMatchInlineSnapshot(`
+    "## Tools
+
+    Some intro text.
+
+    - item 1"
   `);
 });
