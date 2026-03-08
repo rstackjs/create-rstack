@@ -6,8 +6,8 @@
     "lint": "eslint ."
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.3",
-    "eslint": "^9.39.3",
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
     "eslint-plugin-svelte": "^3.15.0",
     "globals": "^17.4.0"
   }
