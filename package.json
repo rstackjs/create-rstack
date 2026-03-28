@@ -23,12 +23,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "rslib build",
-    "dev": "rslib build --watch",
+    "build": "rslib",
+    "dev": "rslib --watch",
     "lint": "biome check .",
     "lint:write": "biome check . --write",
-    "prepare": "simple-git-hooks && pnpm run build",
-    "test": "rstest run",
+    "prepare": "simple-git-hooks && rslib",
+    "test": "rstest",
     "bump": "npx bumpp"
   },
   "simple-git-hooks": {
