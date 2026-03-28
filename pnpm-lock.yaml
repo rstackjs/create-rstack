@@ -63,7 +63,7 @@ importers:
         specifier: ^2.13.1
         version: 2.13.1
       typescript:
-        specifier: ^6.0.2
+        specifier: 6.0.2
         version: 6.0.2
 
 packages:

@@ -1,15 +1,20 @@
 {
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "./dist",
-    "target": "ES2023",
-    "lib": ["DOM", "ESNext"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node"
+    ],
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "declaration": true,
+    "noEmit": true,
+    "skipLibCheck": true,
     "isolatedModules": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
+    "useDefineForClassFields": true
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }
