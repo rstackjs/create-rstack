@@ -14,13 +14,12 @@ import { determineAgent } from '@vercel/detect-agent';
 import spawn from 'cross-spawn';
 import deepmerge from 'deepmerge';
 import minimist from 'minimist';
-import color from 'picocolors';
-import { logger } from 'rslog';
+import { color, logger } from 'rslog';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export { select, multiselect, text };
+export { multiselect, select, text };
 
 function cancelAndExit() {
   cancel('Operation cancelled.');
