@@ -4,17 +4,19 @@ import { fileURLToPath } from 'node:url';
 import {
   cancel,
   isCancel,
+  log,
   multiselect,
   note,
   outro,
   select,
+  spinner,
   text,
 } from '@clack/prompts';
 import { determineAgent } from '@vercel/detect-agent';
-import spawn from 'cross-spawn';
 import deepmerge from 'deepmerge';
 import minimist from 'minimist';
 import { color, logger } from 'rslog';
+import { x } from 'tinyexec';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -87,12 +89,26 @@ function parseToolsOption(tools: Argv['tools']) {
     .filter(Boolean);
 }
 
+function parseSkillsOption(skills: Argv['skill']) {
+  if (typeof skills === 'undefined') {
+    return null;
+  }
+
+  const skillsArr = Array.isArray(skills) ? skills : [skills];
+
+  return skillsArr
+    .flatMap((skill) => skill.split(','))
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+}
+
 export type Argv = {
   help?: boolean;
   dir?: string;
   template?: string;
   override?: boolean;
   tools?: string | string[];
+  skill?: string | string[];
   packageName?: string;
   'package-name'?: string;
 };
@@ -103,6 +119,7 @@ function logHelpMessage(
   name: string,
   templates: string[],
   extraTools?: ExtraTool[],
+  extraSkills?: ExtraSkill[],
 ) {
   const toolsList = [...BUILTIN_TOOLS];
   if (extraTools) {
@@ -124,17 +141,21 @@ function logHelpMessage(
    Options:
    
      -h, --help            display help for command
-     -d, --dir <dir>       create project in specified directory
-     -t, --template <tpl>  specify the template to use
-     --tools <tool>        add additional tools, comma separated
-     --override            override files in target directory
-     --packageName <name>  specify the package name
+      -d, --dir <dir>       create project in specified directory
+      -t, --template <tpl>  specify the template to use
+      --tools <tool>        add additional tools, comma separated
+      --skill <skill>       add optional skills, comma separated
+      --override            override files in target directory
+      --packageName <name>  specify the package name
    
    Available templates:
      ${templates.join(', ')}
 
    Optional tools:
-     ${toolsList.join(', ')}
+      ${toolsList.join(', ')}
+
+   Optional skills:
+      ${extraSkills?.map((skill) => skill.value).join(', ') ?? 'None'}
 `);
 }
 
@@ -194,6 +215,66 @@ async function getTools(
       message:
         'Select additional tools (Use <space> to select, <enter> to continue)',
       options,
+      required: false,
+    }),
+  );
+}
+
+function filterExtraSkills(
+  extraSkills: ExtraSkill[] | undefined,
+  templateName?: string,
+) {
+  return extraSkills?.filter((extraSkill) => {
+    const when = extraSkill.when ?? (() => true);
+    return templateName ? when(templateName) : true;
+  });
+}
+
+function orderExtraSkills(extraSkills: ExtraSkill[] | undefined) {
+  if (!extraSkills) {
+    return [];
+  }
+
+  return [
+    ...extraSkills.filter((extraSkill) => extraSkill.order === 'pre'),
+    ...extraSkills.filter((extraSkill) => typeof extraSkill.order === 'undefined'),
+    ...extraSkills.filter((extraSkill) => extraSkill.order === 'post'),
+  ];
+}
+
+async function getSkills(
+  { skill, dir, template }: Argv,
+  extraSkills?: ExtraSkill[],
+  templateName?: string,
+  promptMultiselect: typeof multiselect = multiselect,
+) {
+  const parsedSkills = parseSkillsOption(skill);
+  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName);
+
+  if (parsedSkills !== null) {
+    return parsedSkills.filter((value: string) =>
+      filteredExtraSkills?.some((extraSkill) => extraSkill.value === value),
+    );
+  }
+
+  if (dir && template) {
+    return [];
+  }
+
+  if (!filteredExtraSkills?.length) {
+    return [];
+  }
+
+  const orderedExtraSkills = orderExtraSkills(filteredExtraSkills);
+
+  return checkCancel<string[]>(
+    await promptMultiselect({
+      message: 'Select optional skills (Use <space> to select, <enter> to continue)',
+      options: orderedExtraSkills.map((extraSkill) => ({
+        value: extraSkill.value,
+        label: extraSkill.label,
+        hint: extraSkill.source,
+      })),
       required: false,
     }),
   );
@@ -270,7 +351,16 @@ type ExtraTool = {
   when?: (templateName: string) => boolean;
 };
 
-function runCommand(command: string, cwd: string, packageManager: string) {
+type ExtraSkill = {
+  value: string;
+  label: string;
+  source: string;
+  skill?: string;
+  when?: (templateName: string) => boolean;
+  order?: 'pre' | 'post';
+};
+
+async function runCommand(command: string, cwd: string, packageManager: string) {
   // Replace `npm create` with the equivalent command for the detected package manager
   if (command.startsWith('npm create ')) {
     const createReplacements: Record<string, string> = {
@@ -292,11 +382,67 @@ function runCommand(command: string, cwd: string, packageManager: string) {
     }
   }
 
-  const [bin, ...args] = command.split(' ');
-  spawn.sync(bin, args, {
-    stdio: 'inherit',
-    cwd,
+  const result = await x(command, [], {
+    nodeOptions: {
+      shell: true,
+      stdio: 'inherit',
+      cwd,
+    },
   });
+
+  if (result.exitCode !== 0) {
+    const details = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
+    throw new Error(
+      `Failed to run command: ${command}${details ? `\n${details}` : ''}`,
+    );
+  }
+}
+
+async function runSkillCommand(
+  skill: ExtraSkill,
+  cwd: string,
+) {
+  const args = [
+    '-y',
+    'skills',
+    'add',
+    skill.source,
+    '--agent',
+    'universal',
+    '--yes',
+    '--copy',
+    '--skill',
+    skill.skill ?? skill.value,
+  ];
+  const command = `npx ${args.join(' ')}`;
+  log.info(`Running skill install command: ${color.dim(command)}`);
+  const installationSpinner = spinner();
+  installationSpinner.start(`Installing skill ${skill.value}`);
+
+  try {
+    const result = await x('npx', args, {
+      nodeOptions: {
+        cwd,
+        stdio: 'pipe',
+      },
+    });
+
+    if (result.exitCode !== 0) {
+      installationSpinner.error(`Failed to install skill ${skill.value}`);
+      const details = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
+      throw new Error(
+        `Failed to install skill "${skill.value}" from "${skill.source}" using command: ${command}${details ? `\n${details}` : ''}`,
+      );
+    }
+
+    installationSpinner.stop(`Installed skill ${skill.value}`);
+  } catch (error) {
+    installationSpinner.error(`Failed to install skill ${skill.value}`);
+    const details = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to install skill "${skill.value}" from "${skill.source}" using command: ${command}${details ? `\n${details}` : ''}`,
+    );
+  }
 }
 
 export async function create({
@@ -309,6 +455,7 @@ export async function create({
   version,
   noteInformation,
   extraTools,
+  extraSkills,
   argv: processArgv = process.argv,
 }: {
   name: string;
@@ -330,6 +477,7 @@ export async function create({
    * Specify additional tools.
    */
   extraTools?: ExtraTool[];
+  extraSkills?: ExtraSkill[];
   /**
    * For test purpose, override the default argv (process.argv).
    */
@@ -348,7 +496,7 @@ export async function create({
   const argv = parseArgv(processArgv);
 
   if (argv.help) {
-    logHelpMessage(name, templates, extraTools);
+    logHelpMessage(name, templates, extraTools, extraSkills);
     return;
   }
 
@@ -402,6 +550,13 @@ export async function create({
 
   const templateName = await getTemplateName(argv);
   const tools = await getTools(argv, extraTools, templateName);
+  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName);
+  const skills = await getSkills(
+    argv,
+    filteredExtraSkills,
+    templateName,
+    multiselect,
+  );
 
   const srcFolder = path.join(root, `template-${templateName}`);
   const commonFolder = path.join(root, 'template-common');
@@ -426,6 +581,15 @@ export async function create({
     skipFiles,
   });
 
+  for (const skillValue of skills) {
+    const matchedSkill = filteredExtraSkills?.find(
+      (extraSkill) => extraSkill.value === skillValue,
+    );
+    if (matchedSkill) {
+      await runSkillCommand(matchedSkill, distFolder);
+    }
+  }
+
   const packageRoot = path.resolve(__dirname, '..');
   const agentsMdSearchDirs = [commonFolder, srcFolder];
 
@@ -445,7 +609,7 @@ export async function create({
           });
         }
         if (matchedTool.command) {
-          runCommand(matchedTool.command, distFolder, packageManager);
+          await runCommand(matchedTool.command, distFolder, packageManager);
         }
         continue;
       }
