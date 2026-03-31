@@ -162,6 +162,16 @@ function createExecCommand(
   return mocks.state.xCalls;
 }
 
+async function getCreateError(action: Promise<unknown>) {
+  try {
+    await action;
+  } catch (error) {
+    return error;
+  }
+
+  throw new Error('Expected create() to throw');
+}
+
 test('should install selected extra skills from comma separated --skill option', async () => {
   const projectDir = path.join(testDir, 'skills-comma-separated');
   const calls = createExecCommand();
@@ -541,36 +551,11 @@ test('should filter extra skills by template and install using skill override', 
 
 test('should throw with skill context when installation fails', async () => {
   const projectDir = path.join(testDir, 'skills-install-failure');
-  createExecCommand(({ command, args, options }) => {
-    expect(command).toBe('npx');
-    expect(args).toEqual([
-      '-y',
-      'skills',
-      'add',
-      'acme/skills',
-      '--agent',
-      'universal',
-      '--yes',
-      '--copy',
-      '--skill',
-      'docs/shared',
-    ]);
-    expect(options).toEqual(
-      expect.objectContaining({
-        nodeOptions: expect.objectContaining({
-          cwd: projectDir,
-          stdio: 'pipe',
-        }),
-      }),
-    );
-    return {
-      stdout: '',
-      stderr: 'install failed',
-      exitCode: 1,
-    };
+  createExecCommand(() => {
+    throw new Error('install failed');
   });
 
-  await expect(
+  const error = await getCreateError(
     create({
       name: 'test',
       root: fixturesDir,
@@ -595,9 +580,75 @@ test('should throw with skill context when installation fails', async () => {
         'shared-docs',
       ],
     }),
-  ).rejects.toThrow(
+  );
+
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toBe(
     'Failed to install skill "shared-docs" from "acme/skills" using command: npx -y skills add acme/skills --agent universal --yes --copy --skill docs/shared\ninstall failed',
   );
+});
+
+test('should trim noisy skills cli output in install errors', async () => {
+  const projectDir = path.join(testDir, 'skills-install-noisy-error');
+  const rawStdout = `███████╗██╗  ██╗██╗██╗     ██╗     ███████╗
+┌   skills
+│
+│  Tip: use the --yes (-y) and --global (-g) flags to install without prompts.
+│
+◇  Source: https://github.com/vercel-labs/agent-skills.git
+│
+◇  Repository cloned
+│
+◇  Found 6 skills
+│
+■  No matching skills found for: non-existent-skill`;
+  createExecCommand(() => {
+    const error = new Error('Process exited with non-zero status (1)') as Error & {
+      output?: { stderr: string; stdout: string };
+    };
+    error.output = {
+      stderr: '',
+      stdout: rawStdout,
+    };
+    throw error;
+  });
+
+  const error = await getCreateError(
+    create({
+      name: 'test',
+      root: fixturesDir,
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      extraSkills: [
+        {
+          value: 'missing-skill',
+          label: 'Missing Skill',
+          source: 'vercel-labs/agent-skills',
+          skill: 'non-existent-skill',
+        },
+      ],
+      argv: [
+        'node',
+        'test',
+        '--dir',
+        projectDir,
+        '--template',
+        'vanilla',
+        '--skill',
+        'missing-skill',
+      ],
+    }),
+  );
+
+  expect(error).toBeInstanceOf(Error);
+  const message = (error as Error).message;
+  expect(
+    message.match(/Failed to install skill "missing-skill"/g)?.length ?? 0,
+  ).toBe(1);
+  expect(message).toContain(
+    'Failed to install skill "missing-skill" from "vercel-labs/agent-skills" using command: npx -y skills add vercel-labs/agent-skills --agent universal --yes --copy --skill non-existent-skill',
+  );
+  expect(message).toContain(rawStdout);
 });
 
 test('should include spawn errors when skill installation cannot start', async () => {
