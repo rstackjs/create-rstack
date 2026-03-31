@@ -419,27 +419,16 @@ async function runSkillCommand(
   const installationSpinner = spinner();
   installationSpinner.start(`Installing skill ${skill.value}`);
 
-  try {
-    await x('npx', args, {
-      throwOnError: true,
-      nodeOptions: {
-        cwd,
-        stdio: 'pipe',
-      },
-    });
-  } catch (error) {
+  const result = await x('npx', args, {
+    nodeOptions: {
+      cwd,
+      stdio: 'pipe',
+    },
+  });
+
+  if (result.exitCode !== 0) {
     installationSpinner.error(`Failed to install skill ${skill.value}`);
-    const details = [
-      error && typeof error === 'object' && 'output' in error
-        ? (error as { output?: { stderr?: string; stdout?: string } }).output?.stderr
-        : undefined,
-      error && typeof error === 'object' && 'output' in error
-        ? (error as { output?: { stderr?: string; stdout?: string } }).output?.stdout
-        : undefined,
-    ]
-      .filter(Boolean)
-      .join('\n')
-      .trim() || (error instanceof Error ? error.message : String(error));
+    const details = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
     throw new Error(
       `Failed to install skill "${skill.value}" from "${skill.source}" using command: ${command}${details ? `\n${details}` : ''}`,
     );

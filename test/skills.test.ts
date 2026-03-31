@@ -552,7 +552,11 @@ test('should filter extra skills by template and install using skill override', 
 test('should throw with skill context when installation fails', async () => {
   const projectDir = path.join(testDir, 'skills-install-failure');
   createExecCommand(() => {
-    throw new Error('install failed');
+    return {
+      stdout: '',
+      stderr: 'install failed',
+      exitCode: 1,
+    };
   });
 
   const error = await getCreateError(
@@ -602,16 +606,11 @@ test('should trim noisy skills cli output in install errors', async () => {
 ◇  Found 6 skills
 │
 ■  No matching skills found for: non-existent-skill`;
-  createExecCommand(() => {
-    const error = new Error('Process exited with non-zero status (1)') as Error & {
-      output?: { stderr: string; stdout: string };
-    };
-    error.output = {
-      stderr: '',
-      stdout: rawStdout,
-    };
-    throw error;
-  });
+  createExecCommand(() => ({
+    stdout: rawStdout,
+    stderr: '',
+    exitCode: 1,
+  }));
 
   const error = await getCreateError(
     create({
@@ -678,7 +677,7 @@ test('should include spawn errors when skill installation cannot start', async (
     throw new Error('spawn npx ENOENT');
   });
 
-  await expect(
+  const error = await getCreateError(
     create({
       name: 'test',
       root: fixturesDir,
@@ -703,7 +702,10 @@ test('should include spawn errors when skill installation cannot start', async (
         'shared-docs',
       ],
     }),
-  ).rejects.toThrow('spawn npx ENOENT');
+  );
+
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toBe('spawn npx ENOENT');
 });
 
 test('should install skills with async spawn so spinner can render during installation', async () => {
