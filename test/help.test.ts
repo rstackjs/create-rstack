@@ -30,3 +30,69 @@ test('help message includes extra tools', async () => {
   const logOutput = logs.join('\n');
   expect(logOutput).toContain('biome, eslint, prettier, custom-tool');
 });
+
+test('help message hides skill help when no optional skills are configured', async () => {
+  const logs: string[] = [];
+  const originalLog = logger.log;
+
+  logger.override({
+    log: (message?: unknown) => {
+      logs.push(String(message ?? ''));
+    },
+  });
+
+  try {
+    await create({
+      name: 'test',
+      root: '.',
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      argv: ['node', 'test', '--help'],
+    });
+  } finally {
+    logger.override({
+      log: originalLog,
+    });
+  }
+
+  const logOutput = logs.join('\n');
+  expect(logOutput).not.toContain('--skill <skill>');
+  expect(logOutput).not.toContain('Optional skills:');
+});
+
+test('help message includes optional skills', async () => {
+  const logs: string[] = [];
+  const originalLog = logger.log;
+
+  logger.override({
+    log: (message?: unknown) => {
+      logs.push(String(message ?? ''));
+    },
+  });
+
+  try {
+    await create({
+      name: 'test',
+      root: '.',
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      extraSkills: [
+        {
+          value: 'git-url',
+          label: 'Git URL',
+          source: 'vercel-labs/agent-skills',
+        },
+      ],
+      argv: ['node', 'test', '--help'],
+    });
+  } finally {
+    logger.override({
+      log: originalLog,
+    });
+  }
+
+  const logOutput = logs.join('\n');
+  expect(logOutput).toContain('--skill <skill>');
+  expect(logOutput).toContain('Optional skills:');
+  expect(logOutput).toContain('git-url');
+});
