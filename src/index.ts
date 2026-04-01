@@ -122,6 +122,10 @@ function logHelpMessage(
   extraSkills?: ExtraSkill[],
 ) {
   const toolsList = [...BUILTIN_TOOLS];
+  const skillsList = (extraSkills ?? [])
+    .map((skill) => skill.value)
+    .filter(Boolean);
+  const hasSkills = skillsList.length > 0;
   if (extraTools) {
     for (const tool of extraTools) {
       if (!tool.value) {
@@ -135,6 +139,15 @@ function logHelpMessage(
     }
   }
 
+  const skillsOptionLine = hasSkills
+    ? '      --skill <skill>       add optional skills, comma separated\n'
+    : '';
+  const optionalSkillsSection = hasSkills
+    ? `
+   Optional skills:
+      ${skillsList.join(', ')}`
+    : '';
+
   logger.log(`
    Usage: create-${name} [dir] [options]
 
@@ -144,18 +157,14 @@ function logHelpMessage(
       -d, --dir <dir>       create project in specified directory
       -t, --template <tpl>  specify the template to use
       --tools <tool>        add additional tools, comma separated
-      --skill <skill>       add optional skills, comma separated
-      --override            override files in target directory
+${skillsOptionLine}      --override            override files in target directory
       --packageName <name>  specify the package name
-   
-   Available templates:
-     ${templates.join(', ')}
+    
+    Available templates:
+      ${templates.join(', ')}
 
-   Optional tools:
-      ${toolsList.join(', ')}
-
-   Optional skills:
-      ${extraSkills?.map((skill) => skill.value).join(', ') ?? 'None'}
+    Optional tools:
+       ${toolsList.join(', ')}${optionalSkillsSection}
 `);
 }
 
