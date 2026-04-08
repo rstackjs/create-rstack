@@ -10,6 +10,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, 'fixtures', 'basic');
 const testDir = path.join(fixturesDir, 'test-temp-output-skills');
 
+type ExecResult = {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+};
+
+type StreamingExecResult = {
+  result: ExecResult;
+  lines?: string[];
+};
+
 const mocks = rs.hoisted(() => {
   type ExecCall = {
     command: string;
@@ -17,20 +28,38 @@ const mocks = rs.hoisted(() => {
     options: unknown;
   };
 
+  type TaskLogEvent = string;
+
   const state = {
     xCalls: [] as ExecCall[],
-    spinnerEvents: [] as string[],
+    taskLogEvents: [] as TaskLogEvent[],
     commandLogs: [] as string[],
     promptOptions: [] as Array<{ value: string; label?: string; hint?: string }>,
   };
 
-  const x = rs.fn(async (command: string, args: string[], options: unknown) => {
-    state.xCalls.push({ command, args, options });
+  function createExecStream(result: ExecResult, lines: string[] = []) {
+    const promise = Promise.resolve(result);
+
     return {
+      then: promise.then.bind(promise),
+      catch: promise.catch.bind(promise),
+      finally: promise.finally.bind(promise),
+      async *[Symbol.asyncIterator]() {
+        for (const line of lines) {
+          await Promise.resolve();
+          yield line;
+        }
+      },
+    };
+  }
+
+  const x = rs.fn((command: string, args: string[], options: unknown) => {
+    state.xCalls.push({ command, args, options });
+    return createExecStream({
       stdout: '',
       stderr: '',
       exitCode: 0,
-    };
+    });
   }) as any;
 
   const xSync = rs.fn((command: string, args: string[], options: unknown) => {
@@ -42,22 +71,32 @@ const mocks = rs.hoisted(() => {
   }) as any;
 
   const spinner = (() => ({
-    start: (message?: string) => {
-      state.spinnerEvents.push(`start:${message ?? ''}`);
-    },
-    stop: (message?: string) => {
-      state.spinnerEvents.push(`stop:${message ?? ''}`);
-    },
-    cancel: (message?: string) => {
-      state.spinnerEvents.push(`cancel:${message ?? ''}`);
-    },
-    error: (message?: string) => {
-      state.spinnerEvents.push(`error:${message ?? ''}`);
-    },
+    start: () => {},
+    stop: () => {},
+    cancel: () => {},
+    error: () => {},
     message: () => {},
     clear: () => {},
     isCancelled: false,
   })) as typeof promptsActual.spinner;
+
+  const taskLog = (({ title }: { title: string }) => ({
+    message: (message?: string) => {
+      state.taskLogEvents.push(`message:${title}:${message ?? ''}`);
+    },
+    success: (message?: string) => {
+      state.taskLogEvents.push(`success:${title}:${message ?? ''}`);
+    },
+    error: (message?: string) => {
+      state.taskLogEvents.push(`error:${title}:${message ?? ''}`);
+    },
+    group: () => {},
+  })) as typeof promptsActual.taskLog;
+
+  const createTaskLog = ({ title }: { title: string }) => {
+    state.taskLogEvents.push(`create:${title}`);
+    return taskLog({ title });
+  };
 
   const multiselect = rs.fn(async (options: {
     message?: string;
@@ -78,7 +117,9 @@ const mocks = rs.hoisted(() => {
     x,
     xSync,
     spinner,
+    taskLog: createTaskLog,
     multiselect,
+    createExecStream,
   };
 });
 
@@ -91,6 +132,7 @@ rs.mock('@clack/prompts', () => ({
   ...promptsActual,
   multiselect: mocks.multiselect,
   spinner: mocks.spinner,
+  taskLog: mocks.taskLog,
   log: {
     ...promptsActual.log,
     info: (message: string) => {
@@ -101,18 +143,18 @@ rs.mock('@clack/prompts', () => ({
 
 beforeEach(() => {
   mocks.state.xCalls.length = 0;
-  mocks.state.spinnerEvents.length = 0;
+  mocks.state.taskLogEvents.length = 0;
   mocks.state.commandLogs.length = 0;
   mocks.state.promptOptions.length = 0;
   rs.mocked(mocks.x).mockReset();
   rs.mocked(mocks.x).mockImplementation(
-    async (command: string, args: string[], options: unknown) => {
+    (command: string, args: string[], options: unknown) => {
       mocks.state.xCalls.push({ command, args, options });
-      return {
+      return mocks.createExecStream({
         stdout: '',
         stderr: '',
         exitCode: 0,
-      };
+      });
     },
   );
   rs.mocked(mocks.multiselect).mockReset();
@@ -144,19 +186,48 @@ function createExecCommand(
     command: string;
     args: string[];
     options: unknown;
-  }) => Promise<{ stdout: string; stderr: string; exitCode: number }> | { stdout: string; stderr: string; exitCode: number },
+  }) =>
+    | Promise<ExecResult | StreamingExecResult>
+    | ExecResult
+    | StreamingExecResult,
 ) {
   rs.mocked(mocks.x).mockImplementation(
-    async (command: string, args: string[], options: unknown) => {
+    (command: string, args: string[], options: unknown) => {
       mocks.state.xCalls.push({ command, args, options });
       if (handler) {
-        return await handler({ command, args, options });
+        const output = handler({ command, args, options });
+        if ('then' in Object(output)) {
+          const promise = Promise.resolve(output).then((resolvedOutput) =>
+            'result' in resolvedOutput
+              ? mocks.createExecStream(resolvedOutput.result, resolvedOutput.lines)
+              : mocks.createExecStream(resolvedOutput),
+          );
+
+          return {
+            then: promise.then.bind(promise),
+            catch: promise.catch.bind(promise),
+            finally: promise.finally.bind(promise),
+            async *[Symbol.asyncIterator]() {
+              const resolvedOutput = await output;
+              const stream = 'result' in resolvedOutput
+                ? mocks.createExecStream(resolvedOutput.result, resolvedOutput.lines)
+                : mocks.createExecStream(resolvedOutput);
+              for await (const line of stream) {
+                yield line;
+              }
+            },
+          };
+        }
+        if ('result' in output) {
+          return mocks.createExecStream(output.result, output.lines);
+        }
+        return mocks.createExecStream(output);
       }
-      return {
+      return mocks.createExecStream({
         stdout: '',
         stderr: '',
         exitCode: 0,
-      };
+      });
     },
   );
   return mocks.state.xCalls;
@@ -175,7 +246,7 @@ async function getCreateError(action: Promise<unknown>) {
 test('should install selected extra skills from comma separated --skill option', async () => {
   const projectDir = path.join(testDir, 'skills-comma-separated');
   const calls = createExecCommand();
-  const spinnerEvents = mocks.state.spinnerEvents;
+  const taskLogEvents = mocks.state.taskLogEvents;
   const commandLogs = mocks.state.commandLogs;
 
   await create({
@@ -250,11 +321,11 @@ test('should install selected extra skills from comma separated --skill option',
       }),
     }),
   });
-  expect(spinnerEvents).toEqual([
-    'start:Installing skill git-url',
-    'stop:Installed skill git-url',
-    'start:Installing skill docs-writer',
-    'stop:Installed skill docs-writer',
+  expect(taskLogEvents).toEqual([
+    'create:Installing skill git-url',
+    'success:Installing skill git-url:Installed skill git-url',
+    'create:Installing skill docs-writer',
+    'success:Installing skill docs-writer:Installed skill docs-writer',
   ]);
   expect(commandLogs).toContain(
     `Running skill install command: ${color.dim('npx -y skills add vercel-labs/agent-skills --agent universal --yes --copy --skill git-url')}`,
@@ -549,7 +620,7 @@ test('should filter extra skills by template and install using skill override', 
   });
 });
 
-test('should throw with skill context when installation fails', async () => {
+test('should throw the install command context when installation fails', async () => {
   const projectDir = path.join(testDir, 'skills-install-failure');
   createExecCommand(() => {
     return {
@@ -588,11 +659,11 @@ test('should throw with skill context when installation fails', async () => {
 
   expect(error).toBeInstanceOf(Error);
   expect((error as Error).message).toBe(
-    'Failed to install skill "shared-docs" from "acme/skills" using command: npx -y skills add acme/skills --agent universal --yes --copy --skill docs/shared\ninstall failed',
+    'Failed to install skill "shared-docs" from "acme/skills" using command: npx -y skills add acme/skills --agent universal --yes --copy --skill docs/shared',
   );
 });
 
-test('should trim noisy skills cli output in install errors', async () => {
+test('should omit noisy skills cli output from install errors', async () => {
   const projectDir = path.join(testDir, 'skills-install-noisy-error');
   const rawStdout = `███████╗██╗  ██╗██╗██╗     ██╗     ███████╗
 ┌   skills
@@ -647,7 +718,7 @@ test('should trim noisy skills cli output in install errors', async () => {
   expect(message).toContain(
     'Failed to install skill "missing-skill" from "vercel-labs/agent-skills" using command: npx -y skills add vercel-labs/agent-skills --agent universal --yes --copy --skill non-existent-skill',
   );
-  expect(message).toContain(rawStdout);
+  expect(message).not.toContain(rawStdout);
 });
 
 test('should include spawn errors when skill installation cannot start', async () => {
@@ -708,10 +779,9 @@ test('should include spawn errors when skill installation cannot start', async (
   expect((error as Error).message).toBe('spawn npx ENOENT');
 });
 
-test('should install skills with async spawn so spinner can render during installation', async () => {
+test('should stream task log output when skill installation is async', async () => {
   const projectDir = path.join(testDir, 'skills-async-install');
-  const execEvents: string[] = [];
-  const spinnerEvents = mocks.state.spinnerEvents;
+  const taskLogEvents = mocks.state.taskLogEvents;
   createExecCommand(async ({ command, args, options }) => {
     expect(command).toBe('npx');
     expect(args).toEqual([
@@ -734,13 +804,13 @@ test('should install skills with async spawn so spinner can render during instal
         }),
       }),
     );
-    execEvents.push('started');
-    await Promise.resolve();
-    execEvents.push('resolved');
     return {
-      stdout: 'installing...',
-      stderr: '',
-      exitCode: 0,
+      result: {
+        stdout: 'installing...done',
+        stderr: '',
+        exitCode: 0,
+      },
+      lines: ['installing...', 'done'],
     };
   });
 
@@ -769,11 +839,107 @@ test('should install skills with async spawn so spinner can render during instal
     ],
   });
 
-  expect(spinnerEvents).toEqual([
-    'start:Installing skill shared-docs',
-    'stop:Installed skill shared-docs',
+  expect(taskLogEvents).toEqual([
+    'create:Installing skill shared-docs',
+    'message:Installing skill shared-docs:installing...',
+    'message:Installing skill shared-docs:done',
+    'success:Installing skill shared-docs:Installed skill shared-docs',
   ]);
-  expect(execEvents).toEqual(['started', 'resolved']);
+});
+
+test('should preserve carriage-return chunks in the task log output', async () => {
+  const projectDir = path.join(testDir, 'skills-carriage-return-output');
+  const taskLogEvents = mocks.state.taskLogEvents;
+  createExecCommand(() => ({
+    result: {
+      stdout: 'Repository cloned',
+      stderr: '',
+      exitCode: 0,
+    },
+    lines: ['Cloning repository\rCloning repository...\rRepository cloned'],
+  }));
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    extraSkills: [
+      {
+        value: 'shared-docs',
+        label: 'Shared Docs',
+        source: 'acme/skills',
+        skill: 'docs/shared',
+      },
+    ],
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--skill',
+      'shared-docs',
+    ],
+  });
+
+  expect(taskLogEvents).toEqual([
+    'create:Installing skill shared-docs',
+    'message:Installing skill shared-docs:Cloning repository\rCloning repository...\rRepository cloned',
+    'success:Installing skill shared-docs:Installed skill shared-docs',
+  ]);
+});
+
+test('should stream install output and show the command error in the task log when installation fails', async () => {
+  const projectDir = path.join(testDir, 'skills-install-streaming-failure');
+  createExecCommand(() => ({
+    result: {
+      stdout: 'cloning...\nchecking...',
+      stderr: 'install failed',
+      exitCode: 1,
+    },
+    lines: ['cloning...', 'checking...', 'install failed'],
+  }));
+
+  const error = await getCreateError(
+    create({
+      name: 'test',
+      root: fixturesDir,
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      extraSkills: [
+        {
+          value: 'shared-docs',
+          label: 'Shared Docs',
+          source: 'acme/skills',
+          skill: 'docs/shared',
+        },
+      ],
+      argv: [
+        'node',
+        'test',
+        '--dir',
+        projectDir,
+        '--template',
+        'vanilla',
+        '--skill',
+        'shared-docs',
+      ],
+    }),
+  );
+
+  expect(mocks.state.taskLogEvents).toEqual([
+    'create:Installing skill shared-docs',
+    'message:Installing skill shared-docs:cloning...',
+    'message:Installing skill shared-docs:checking...',
+    'message:Installing skill shared-docs:install failed',
+    'error:Installing skill shared-docs:Failed to install skill "shared-docs" from "acme/skills" using command: npx -y skills add acme/skills --agent universal --yes --copy --skill docs/shared',
+  ]);
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toBe(
+    'Failed to install skill "shared-docs" from "acme/skills" using command: npx -y skills add acme/skills --agent universal --yes --copy --skill docs/shared',
+  );
 });
 
 test('should order skill prompt options using pre, default, and post order', async () => {
