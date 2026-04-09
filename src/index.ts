@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import path, { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  autocomplete,
   cancel,
+  groupMultiselect,
   isCancel,
   log,
   multiselect,
@@ -21,7 +23,7 @@ import { x } from 'tinyexec';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export { multiselect, select, text };
+export { autocomplete, groupMultiselect, multiselect, select, text };
 
 function cancelAndExit() {
   cancel('Operation cancelled.');
