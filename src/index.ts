@@ -11,7 +11,7 @@ import {
   note,
   outro,
   select,
-  spinner,
+  taskLog,
   text,
 } from '@clack/prompts';
 import { determineAgent } from '@vercel/detect-agent';
@@ -427,25 +427,30 @@ async function runSkillCommand(
   ];
   const command = `npx ${args.join(' ')}`;
   log.info(`Running skill install command: ${color.dim(command)}`);
-  const installationSpinner = spinner();
-  installationSpinner.start(`Installing skill ${skill.value}`);
+  const installationTaskLog = taskLog({
+    title: `Installing skill ${skill.value}`,
+  });
 
-  const result = await x('npx', args, {
+  const proc = x('npx', args, {
     nodeOptions: {
       cwd,
       stdio: 'pipe',
     },
   });
 
-  if (result.exitCode !== 0) {
-    installationSpinner.error(`Failed to install skill ${skill.value}`);
-    const details = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
-    throw new Error(
-      `Failed to install skill "${skill.value}" from "${skill.source}" using command: ${command}${details ? `\n${details}` : ''}`,
-    );
+  for await (const line of proc) {
+    installationTaskLog.message(line);
   }
 
-  installationSpinner.stop(`Installed skill ${skill.value}`);
+  const result = await proc;
+
+  if (result.exitCode !== 0) {
+    const message = `Failed to install skill "${skill.value}" from "${skill.source}" using command: ${command}`;
+    installationTaskLog.error(message);
+    throw new Error(message);
+  }
+
+  installationTaskLog.success(`Installed skill ${skill.value}`);
 }
 
 export async function create({
