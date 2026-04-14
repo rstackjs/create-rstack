@@ -242,7 +242,7 @@ function filterExtraSkills(
   // values are handled separately in `getSkills`.
   return extraSkills?.filter((extraSkill) => {
     const when = extraSkill.when ?? (() => true);
-    return templateName ? when(templateName, tools) : true;
+    return templateName ? when({ templateName, tools }) : true;
   });
 }
 
@@ -380,7 +380,7 @@ type ExtraSkill = {
    * selected template/tools. Explicit `--skill` values and `--help` remain
    * unfiltered so CLI input stays authoritative and help stays discoverable.
    */
-  when?: (templateName: string, tools: string[]) => boolean;
+  when?: (context: { templateName: string; tools: string[] }) => boolean;
   order?: 'pre' | 'post';
 };
 
