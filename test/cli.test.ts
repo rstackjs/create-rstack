@@ -47,6 +47,38 @@ test('should accept comma separated tools option', async () => {
   expect(fs.existsSync(path.join(projectDir, '.prettierrc'))).toBe(true);
 });
 
+test('should scaffold rslint tool files', async () => {
+  const projectDir = path.join(testDir, 'rslint-tool');
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--tools',
+      'rslint',
+    ],
+  });
+
+  expect(fs.existsSync(path.join(projectDir, 'rslint.config.ts'))).toBe(true);
+
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.join(projectDir, 'package.json'), 'utf-8'),
+  );
+
+  expect(packageJson.scripts).toMatchObject({
+    lint: 'rslint',
+  });
+  expect(packageJson.devDependencies['@rslint/core']).toBeTruthy();
+});
+
 test('should skip tools selection', async () => {
   const projectDir = path.join(testDir, 'comma-separated-tools');
 
