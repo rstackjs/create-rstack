@@ -115,7 +115,7 @@ export type Argv = {
   'package-name'?: string;
 };
 
-export const BUILTIN_TOOLS = ['biome', 'eslint', 'prettier'];
+export const BUILTIN_TOOLS = ['eslint', 'rslint', 'biome', 'prettier'];
 
 function logHelpMessage(
   name: string,
@@ -200,9 +200,10 @@ async function getTools(
   }
 
   const options = [
-    { value: 'biome', label: 'Biome - linting & formatting' },
     { value: 'eslint', label: 'ESLint - linting' },
+    { value: 'rslint', label: 'Rslint - linting (experimental)' },
     { value: 'prettier', label: 'Prettier - formatting' },
+    { value: 'biome', label: 'Biome - linting & formatting' },
   ];
 
   if (filteredExtraTools) {
@@ -253,7 +254,9 @@ function orderExtraSkills(extraSkills: ExtraSkill[] | undefined) {
 
   return [
     ...extraSkills.filter((extraSkill) => extraSkill.order === 'pre'),
-    ...extraSkills.filter((extraSkill) => typeof extraSkill.order === 'undefined'),
+    ...extraSkills.filter(
+      (extraSkill) => typeof extraSkill.order === 'undefined',
+    ),
     ...extraSkills.filter((extraSkill) => extraSkill.order === 'post'),
   ];
 }
@@ -266,7 +269,11 @@ async function getSkills(
   promptMultiselect: typeof multiselect = multiselect,
 ) {
   const parsedSkills = parseSkillsOption(skill);
-  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName, tools);
+  const filteredExtraSkills = filterExtraSkills(
+    extraSkills,
+    templateName,
+    tools,
+  );
 
   if (parsedSkills !== null) {
     // Treat explicit `--skill` values as authoritative as long as they refer to
@@ -288,7 +295,8 @@ async function getSkills(
 
   return checkCancel<string[]>(
     await promptMultiselect({
-      message: 'Select optional skills (Use <space> to select, <enter> to continue)',
+      message:
+        'Select optional skills (Use <space> to select, <enter> to continue)',
       options: orderedExtraSkills.map((extraSkill) => ({
         value: extraSkill.value,
         label: extraSkill.label,
@@ -384,7 +392,11 @@ type ExtraSkill = {
   order?: 'pre' | 'post';
 };
 
-async function runCommand(command: string, cwd: string, packageManager: string) {
+async function runCommand(
+  command: string,
+  cwd: string,
+  packageManager: string,
+) {
   // Replace `npm create` with the equivalent command for the detected package manager
   if (command.startsWith('npm create ')) {
     const createReplacements: Record<string, string> = {
@@ -415,17 +427,17 @@ async function runCommand(command: string, cwd: string, packageManager: string) 
   });
 
   if (result.exitCode !== 0) {
-    const details = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
+    const details = [result.stderr, result.stdout]
+      .filter(Boolean)
+      .join('\n')
+      .trim();
     throw new Error(
       `Failed to run command: ${command}${details ? `\n${details}` : ''}`,
     );
   }
 }
 
-async function runSkillCommand(
-  skills: ExtraSkill[],
-  cwd: string,
-) {
+async function runSkillCommand(skills: ExtraSkill[], cwd: string) {
   const [firstSkill] = skills;
   // `skills add` accepts repeated `--skill` flags for a single source.
   const installArgs = skills.flatMap((skill) => [
@@ -465,7 +477,9 @@ async function runSkillCommand(
   const result = await proc;
 
   if (result.exitCode !== 0) {
-    const quotedSkillLabel = skills.map((skill) => `"${skill.value}"`).join(', ');
+    const quotedSkillLabel = skills
+      .map((skill) => `"${skill.value}"`)
+      .join(', ');
     const message = `Failed to install ${skillNoun} ${quotedSkillLabel} from "${firstSkill.source}" using command: ${command}`;
     installationTaskLog.error(message);
     throw new Error(message);
@@ -579,7 +593,13 @@ export async function create({
 
   const templateName = await getTemplateName(argv);
   const tools = await getTools(argv, extraTools, templateName);
-  const skills = await getSkills(argv, extraSkills, templateName, tools, multiselect);
+  const skills = await getSkills(
+    argv,
+    extraSkills,
+    templateName,
+    tools,
+    multiselect,
+  );
 
   const srcFolder = path.join(root, `template-${templateName}`);
   const commonFolder = path.join(root, 'template-common');

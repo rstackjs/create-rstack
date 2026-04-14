@@ -1,3 +1,6 @@
 {
   "search.useIgnoreFiles": true,
+  "cSpell.words": [
+    "rslint"
+  ],
 }

@@ -28,7 +28,7 @@ test('help message includes extra tools', async () => {
   }
 
   const logOutput = logs.join('\n');
-  expect(logOutput).toContain('biome, eslint, prettier, custom-tool');
+  expect(logOutput).toContain('eslint, rslint, biome, prettier, custom-tool');
 });
 
 test('help message hides skill help when no optional skills are configured', async () => {
@@ -133,7 +133,15 @@ test('help message lists all optional skills even when template and tools are pr
           when: ({ tools }) => tools.includes('rstest'),
         },
       ],
-      argv: ['node', 'test', '--help', '--template', 'vanilla', '--tools', 'biome'],
+      argv: [
+        'node',
+        'test',
+        '--help',
+        '--template',
+        'vanilla',
+        '--tools',
+        'biome',
+      ],
     });
   } finally {
     logger.override({

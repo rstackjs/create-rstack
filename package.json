@@ -35,7 +35,8 @@
   },
   "nano-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs}": [
-      "rslint && prettier --write"
+      "rslint",
+      "prettier --write"
     ]
   },
   "devDependencies": {
