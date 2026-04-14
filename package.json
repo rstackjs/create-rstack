@@ -19,6 +19,7 @@
   "files": [
     "template-biome",
     "template-eslint",
+    "template-rslint",
     "template-prettier",
     "dist"
   ],
@@ -43,7 +44,7 @@
     "@clack/prompts": "^1.2.0",
     "@microsoft/api-extractor": "^7.58.2",
     "@rslib/core": "0.21.0",
-    "@rslint/core": "^0.4.1",
+    "@rslint/core": "^0.4.2",
     "@rstest/core": "0.9.7",
     "@types/fs-extra": "^11.0.4",
     "@types/minimist": "^1.2.5",
