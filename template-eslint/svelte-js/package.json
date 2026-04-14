@@ -1,5 +1,5 @@
 {
-  "name": "rsbuild-eslint-svelte-js",
+  "name": "eslint-svelte-js",
   "private": true,
   "version": "1.0.0",
   "scripts": {

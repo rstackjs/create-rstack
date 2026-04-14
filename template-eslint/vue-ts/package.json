@@ -1,5 +1,5 @@
 {
-  "name": "rsbuild-eslint-vue-ts",
+  "name": "eslint-vue-ts",
   "private": true,
   "version": "1.0.0",
   "scripts": {
