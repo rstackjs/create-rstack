@@ -410,25 +410,32 @@ async function runCommand(command: string, cwd: string, packageManager: string) 
 }
 
 async function runSkillCommand(
-  skill: ExtraSkill,
+  skills: ExtraSkill[],
   cwd: string,
 ) {
+  const [firstSkill] = skills;
+  // `skills add` accepts repeated `--skill` flags for a single source.
+  const installArgs = skills.flatMap((skill) => [
+    '--skill',
+    skill.skill ?? skill.value,
+  ]);
   const args = [
     '-y',
     'skills',
     'add',
-    skill.source,
+    firstSkill.source,
     '--agent',
     'universal',
     '--yes',
     '--copy',
-    '--skill',
-    skill.skill ?? skill.value,
+    ...installArgs,
   ];
   const command = `npx ${args.join(' ')}`;
   log.info(`Running skill install command: ${color.dim(command)}`);
+  const skillLabel = skills.map((skill) => skill.value).join(', ');
+  const skillNoun = skills.length === 1 ? 'skill' : 'skills';
   const installationTaskLog = taskLog({
-    title: `Installing skill ${skill.value}`,
+    title: `Installing ${skillNoun} ${skillLabel}`,
   });
 
   const proc = x('npx', args, {
@@ -445,12 +452,13 @@ async function runSkillCommand(
   const result = await proc;
 
   if (result.exitCode !== 0) {
-    const message = `Failed to install skill "${skill.value}" from "${skill.source}" using command: ${command}`;
+    const quotedSkillLabel = skills.map((skill) => `"${skill.value}"`).join(', ');
+    const message = `Failed to install ${skillNoun} ${quotedSkillLabel} from "${firstSkill.source}" using command: ${command}`;
     installationTaskLog.error(message);
     throw new Error(message);
   }
 
-  installationTaskLog.success(`Installed skill ${skill.value}`);
+  installationTaskLog.success(`Installed ${skillNoun} ${skillLabel}`);
 }
 
 export async function create({
@@ -589,13 +597,31 @@ export async function create({
     skipFiles,
   });
 
+  const skillsByValue = new Map(
+    (filteredExtraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),
+  );
+  let currentSkillBatch: ExtraSkill[] = [];
+
+  // Batch only contiguous skills from the same source to preserve install order.
   for (const skillValue of skills) {
-    const matchedSkill = filteredExtraSkills?.find(
-      (extraSkill) => extraSkill.value === skillValue,
-    );
-    if (matchedSkill) {
-      await runSkillCommand(matchedSkill, distFolder);
+    const matchedSkill = skillsByValue.get(skillValue);
+    if (!matchedSkill) {
+      continue;
     }
+
+    if (
+      currentSkillBatch.length > 0 &&
+      currentSkillBatch[0].source !== matchedSkill.source
+    ) {
+      await runSkillCommand(currentSkillBatch, distFolder);
+      currentSkillBatch = [];
+    }
+
+    currentSkillBatch.push(matchedSkill);
+  }
+
+  if (currentSkillBatch.length > 0) {
+    await runSkillCommand(currentSkillBatch, distFolder);
   }
 
   const packageRoot = path.resolve(__dirname, '..');
