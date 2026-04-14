@@ -8,6 +8,7 @@ node_modules
 dist/
 test-results
 test-temp-*
+.rslib
 
 # IDE
 .vscode/*
