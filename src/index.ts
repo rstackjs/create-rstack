@@ -461,22 +461,6 @@ async function runSkillCommand(
   installationTaskLog.success(`Installed ${skillNoun} ${skillLabel}`);
 }
 
-function groupContiguousSkillsBySource(skills: ExtraSkill[]) {
-  const skillGroups: ExtraSkill[][] = [];
-
-  for (const skill of skills) {
-    const lastGroup = skillGroups.at(-1);
-    if (lastGroup?.[0]?.source === skill.source) {
-      lastGroup.push(skill);
-      continue;
-    }
-
-    skillGroups.push([skill]);
-  }
-
-  return skillGroups;
-}
-
 export async function create({
   name,
   root,
@@ -613,15 +597,31 @@ export async function create({
     skipFiles,
   });
 
-  const selectedExtraSkills = skills
-    .map((skillValue) =>
-      filteredExtraSkills?.find((extraSkill) => extraSkill.value === skillValue),
-    )
-    .filter((skill): skill is ExtraSkill => Boolean(skill));
+  const skillsByValue = new Map(
+    (filteredExtraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),
+  );
+  let currentSkillBatch: ExtraSkill[] = [];
 
   // Batch only contiguous skills from the same source to preserve install order.
-  for (const groupedSkills of groupContiguousSkillsBySource(selectedExtraSkills)) {
-    await runSkillCommand(groupedSkills, distFolder);
+  for (const skillValue of skills) {
+    const matchedSkill = skillsByValue.get(skillValue);
+    if (!matchedSkill) {
+      continue;
+    }
+
+    if (
+      currentSkillBatch.length > 0 &&
+      currentSkillBatch[0].source !== matchedSkill.source
+    ) {
+      await runSkillCommand(currentSkillBatch, distFolder);
+      currentSkillBatch = [];
+    }
+
+    currentSkillBatch.push(matchedSkill);
+  }
+
+  if (currentSkillBatch.length > 0) {
+    await runSkillCommand(currentSkillBatch, distFolder);
   }
 
   const packageRoot = path.resolve(__dirname, '..');
