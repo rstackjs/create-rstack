@@ -26,7 +26,9 @@ const mocks = rs.hoisted(() => {
         stderr: '',
         exitCode: 0,
       };
+      // rslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any,
+    // rslint-disable-next-line @typescript-eslint/no-explicit-any
     xSync: rs.fn(() => ({ stdout: '', stderr: '', exitCode: 0 })) as any,
   };
 });

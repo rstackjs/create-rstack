@@ -26,7 +26,8 @@
   "scripts": {
     "build": "rslib",
     "dev": "rslib --watch",
-    "lint": "rslint",
+    "lint": "rslint && prettier . --check",
+    "lint:fix": "rslint --fix && prettier . --write",
     "prepare": "simple-git-hooks && rslib",
     "test": "rstest",
     "bump": "npx bumpp"

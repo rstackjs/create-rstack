@@ -46,12 +46,14 @@ test('should generate AGENTS.md with no tools selected', async () => {
     ## Development
 
     ### Common Development
+
     - Common development instructions
     - Available in all templates
 
     ## Tools
 
     ### Common Tools
+
     - Tools that apply to all templates
 
     ### Rstest
@@ -100,12 +102,14 @@ test('should generate AGENTS.md with single tool selected', async () => {
     ## Development
 
     ### Common Development
+
     - Common development instructions
     - Available in all templates
 
     ## Tools
 
     ### Common Tools
+
     - Tools that apply to all templates
 
     ### Rstest
@@ -163,12 +167,14 @@ test('should generate AGENTS.md with eslint tool and template mapping', async ()
     ## Development
 
     ### Common Development
+
     - Common development instructions
     - Available in all templates
 
     ## Tools
 
     ### Common Tools
+
     - Tools that apply to all templates
 
     ### Rstest
@@ -212,12 +218,14 @@ test('should merge top-level sections from AGENTS.md files', async () => {
     ## Development
 
     ### Common Development
+
     - Common development instructions
     - Available in all templates
 
     ## Tools
 
     ### Common Tools
+
     - Tools that apply to all templates
 
     ### Rstest
