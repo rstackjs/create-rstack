@@ -96,3 +96,55 @@ test('help message includes optional skills', async () => {
   expect(logOutput).toContain('Optional skills:');
   expect(logOutput).toContain('git-url');
 });
+
+test('help message lists all optional skills even when template and tools are provided', async () => {
+  const logs: string[] = [];
+  const originalLog = logger.log;
+
+  logger.override({
+    log: (message?: unknown) => {
+      logs.push(String(message ?? ''));
+    },
+  });
+
+  try {
+    await create({
+      name: 'test',
+      root: '.',
+      templates: ['vanilla', 'react'],
+      getTemplateName: async () => 'vanilla',
+      extraSkills: [
+        {
+          value: 'shared-docs',
+          label: 'Shared Docs',
+          source: 'acme/skills',
+          when: ({ templateName }) => templateName === 'vanilla',
+        },
+        {
+          value: 'react-docs',
+          label: 'React Docs',
+          source: 'acme/skills',
+          when: ({ templateName }) => templateName === 'react',
+        },
+        {
+          value: 'rstest-best-practices',
+          label: 'Rstest Best Practices',
+          source: 'rstackjs/agent-skills',
+          when: ({ tools }) => tools.includes('rstest'),
+        },
+      ],
+      argv: ['node', 'test', '--help', '--template', 'vanilla', '--tools', 'biome'],
+    });
+  } finally {
+    logger.override({
+      log: originalLog,
+    });
+  }
+
+  const logOutput = logs.join('\n');
+  expect(logOutput).toContain('--skill <skill>');
+  expect(logOutput).toContain('Optional skills:');
+  expect(logOutput).toContain('shared-docs');
+  expect(logOutput).toContain('react-docs');
+  expect(logOutput).toContain('rstest-best-practices');
+});

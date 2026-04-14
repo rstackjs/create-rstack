@@ -124,6 +124,8 @@ function logHelpMessage(
   extraSkills?: ExtraSkill[],
 ) {
   const toolsList = [...BUILTIN_TOOLS];
+  // Keep help output exhaustive for discoverability. `skill.when` only gates
+  // the interactive prompt, not the documented list of available skills.
   const skillsList = (extraSkills ?? [])
     .map((skill) => skill.value)
     .filter(Boolean);
@@ -234,10 +236,13 @@ async function getTools(
 function filterExtraSkills(
   extraSkills: ExtraSkill[] | undefined,
   templateName?: string,
+  tools: string[] = [],
 ) {
+  // `skill.when` only affects the interactive prompt. Explicit `--skill`
+  // values are handled separately in `getSkills`.
   return extraSkills?.filter((extraSkill) => {
     const when = extraSkill.when ?? (() => true);
-    return templateName ? when(templateName) : true;
+    return templateName ? when({ templateName, tools }) : true;
   });
 }
 
@@ -257,14 +262,17 @@ async function getSkills(
   { skill, dir, template }: Argv,
   extraSkills?: ExtraSkill[],
   templateName?: string,
+  tools: string[] = [],
   promptMultiselect: typeof multiselect = multiselect,
 ) {
   const parsedSkills = parseSkillsOption(skill);
-  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName);
+  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName, tools);
 
   if (parsedSkills !== null) {
+    // Treat explicit `--skill` values as authoritative as long as they refer to
+    // a declared skill. `skill.when` only hides options from the prompt.
     return parsedSkills.filter((value: string) =>
-      filteredExtraSkills?.some((extraSkill) => extraSkill.value === value),
+      extraSkills?.some((extraSkill) => extraSkill.value === value),
     );
   }
 
@@ -367,7 +375,12 @@ type ExtraSkill = {
   label: string;
   source: string;
   skill?: string;
-  when?: (templateName: string) => boolean;
+  /**
+   * Controls whether the skill is shown in the interactive prompt for the
+   * selected template/tools. Explicit `--skill` values and `--help` remain
+   * unfiltered so CLI input stays authoritative and help stays discoverable.
+   */
+  when?: (context: { templateName: string; tools: string[] }) => boolean;
   order?: 'pre' | 'post';
 };
 
@@ -566,13 +579,7 @@ export async function create({
 
   const templateName = await getTemplateName(argv);
   const tools = await getTools(argv, extraTools, templateName);
-  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName);
-  const skills = await getSkills(
-    argv,
-    filteredExtraSkills,
-    templateName,
-    multiselect,
-  );
+  const skills = await getSkills(argv, extraSkills, templateName, tools, multiselect);
 
   const srcFolder = path.join(root, `template-${templateName}`);
   const commonFolder = path.join(root, 'template-common');
@@ -598,7 +605,7 @@ export async function create({
   });
 
   const skillsByValue = new Map(
-    (filteredExtraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),
+    (extraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),
   );
   let currentSkillBatch: ExtraSkill[] = [];
 
