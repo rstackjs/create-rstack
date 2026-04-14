@@ -34,7 +34,11 @@ const mocks = rs.hoisted(() => {
     xCalls: [] as ExecCall[],
     taskLogEvents: [] as TaskLogEvent[],
     commandLogs: [] as string[],
-    promptOptions: [] as Array<{ value: string; label?: string; hint?: string }>,
+    promptOptions: [] as Array<{
+      value: string;
+      label?: string;
+      hint?: string;
+    }>,
   };
 
   function createExecStream(result: ExecResult, lines: string[] = []) {
@@ -60,6 +64,7 @@ const mocks = rs.hoisted(() => {
       stderr: '',
       exitCode: 0,
     });
+    // rslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as any;
 
   const xSync = rs.fn((command: string, args: string[], options: unknown) => {
@@ -68,6 +73,7 @@ const mocks = rs.hoisted(() => {
       stderr: '',
       exitCode: 0,
     };
+    // rslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as any;
 
   const spinner = (() => ({
@@ -98,19 +104,21 @@ const mocks = rs.hoisted(() => {
     return taskLog({ title });
   };
 
-  const multiselect = rs.fn(async (options: {
-    message?: string;
-    options?: Array<{ value: unknown; label?: string; hint?: string }>;
-  }) => {
-    if (options.message?.includes('Select optional skills')) {
-      state.promptOptions = (options.options ?? []) as Array<{
-        value: string;
-        label?: string;
-        hint?: string;
-      }>;
-    }
-    return [];
-  }) as typeof promptsActual.multiselect;
+  const multiselect = rs.fn(
+    async (options: {
+      message?: string;
+      options?: Array<{ value: unknown; label?: string; hint?: string }>;
+    }) => {
+      if (options.message?.includes('Select optional skills')) {
+        state.promptOptions = (options.options ?? []) as Array<{
+          value: string;
+          label?: string;
+          hint?: string;
+        }>;
+      }
+      return [];
+    },
+  ) as typeof promptsActual.multiselect;
 
   return {
     state,
@@ -199,7 +207,10 @@ function createExecCommand(
         if ('then' in Object(output)) {
           const promise = Promise.resolve(output).then((resolvedOutput) =>
             'result' in resolvedOutput
-              ? mocks.createExecStream(resolvedOutput.result, resolvedOutput.lines)
+              ? mocks.createExecStream(
+                  resolvedOutput.result,
+                  resolvedOutput.lines,
+                )
               : mocks.createExecStream(resolvedOutput),
           );
 
@@ -209,9 +220,13 @@ function createExecCommand(
             finally: promise.finally.bind(promise),
             async *[Symbol.asyncIterator]() {
               const resolvedOutput = await output;
-              const stream = 'result' in resolvedOutput
-                ? mocks.createExecStream(resolvedOutput.result, resolvedOutput.lines)
-                : mocks.createExecStream(resolvedOutput);
+              const stream =
+                'result' in resolvedOutput
+                  ? mocks.createExecStream(
+                      resolvedOutput.result,
+                      resolvedOutput.lines,
+                    )
+                  : mocks.createExecStream(resolvedOutput);
               for await (const line of stream) {
                 yield line;
               }
@@ -655,14 +670,7 @@ test('should skip skill installation when --dir and --template are used without 
         source: 'vercel-labs/agent-skills',
       },
     ],
-    argv: [
-      'node',
-      'test',
-      '--dir',
-      projectDir,
-      '--template',
-      'vanilla',
-    ],
+    argv: ['node', 'test', '--dir', projectDir, '--template', 'vanilla'],
   });
 
   expect(calls).toHaveLength(0);
@@ -695,15 +703,7 @@ test('should prove --skill skips the skills prompt even without --dir and --temp
         source: 'vercel-labs/agent-skills',
       },
     ],
-    argv: [
-      'node',
-      'test',
-      projectDir,
-      '--tools',
-      '',
-      '--skill',
-      'git-url',
-    ],
+    argv: ['node', 'test', projectDir, '--tools', '', '--skill', 'git-url'],
   });
 
   expect(skillsPromptReached).toBe(false);
@@ -1297,23 +1297,25 @@ test('should stream install output and show the command error in the task log wh
 
 test('should order skill prompt options using pre, default, and post order', async () => {
   const projectDir = path.join(testDir, 'skills-ordering-proof');
-  rs.mocked(mocks.multiselect).mockImplementation(async <Value,>({
-    message,
-    options,
-  }: {
-    message?: string;
-    options?: Array<{ value: Value; label?: string; hint?: string }>;
-  }) => {
-    if (message?.includes('Select optional skills')) {
-      mocks.state.promptOptions = (options ?? []) as Array<{
-        value: string;
-        label?: string;
-        hint?: string;
-      }>;
+  rs.mocked(mocks.multiselect).mockImplementation(
+    async <Value>({
+      message,
+      options,
+    }: {
+      message?: string;
+      options?: Array<{ value: Value; label?: string; hint?: string }>;
+    }) => {
+      if (message?.includes('Select optional skills')) {
+        mocks.state.promptOptions = (options ?? []) as Array<{
+          value: string;
+          label?: string;
+          hint?: string;
+        }>;
+        return [];
+      }
       return [];
-    }
-    return [];
-  });
+    },
+  );
 
   await create({
     name: 'test',
