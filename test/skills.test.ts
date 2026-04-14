@@ -731,7 +731,7 @@ test('should prove --skill skips the skills prompt even without --dir and --temp
   });
 });
 
-test('should filter extra skills by template and install using skill override', async () => {
+test('should honor explicit --skill values even when they are hidden by template gating', async () => {
   const projectDir = path.join(testDir, 'skills-template-filtering');
   const calls = createExecCommand();
 
@@ -770,6 +770,140 @@ test('should filter extra skills by template and install using skill override', 
 
   expect(calls).toHaveLength(1);
   expect(calls[0]).toEqual({
+    args: [
+      '-y',
+      'skills',
+      'add',
+      'acme/skills',
+      '--agent',
+      'universal',
+      '--yes',
+      '--copy',
+      '--skill',
+      'docs/react',
+      '--skill',
+      'docs/shared',
+    ],
+    command: 'npx',
+    options: expect.objectContaining({
+      nodeOptions: expect.objectContaining({
+        cwd: projectDir,
+        stdio: 'pipe',
+      }),
+    }),
+  });
+});
+
+test('should show tool-gated skills in the prompt when the required tool is selected', async () => {
+  const projectDir = path.join(testDir, 'skills-tools-filtering-prompt');
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    extraTools: [
+      {
+        value: 'rstest',
+        label: 'Rstest',
+      },
+    ],
+    extraSkills: [
+      {
+        value: 'shared-docs',
+        label: 'Shared Docs',
+        source: 'acme/skills',
+      },
+      {
+        value: 'rstest-best-practices',
+        label: 'Rstest Best Practices',
+        source: 'rstackjs/agent-skills',
+        when: (_templateName, selectedTools) => selectedTools.includes('rstest'),
+      },
+    ],
+    argv: ['node', 'test', projectDir, '--tools', 'rstest'],
+  });
+
+  expect(mocks.state.promptOptions).toEqual([
+    {
+      value: 'shared-docs',
+      label: 'Shared Docs',
+      hint: 'acme/skills',
+    },
+    {
+      value: 'rstest-best-practices',
+      label: 'Rstest Best Practices',
+      hint: 'rstackjs/agent-skills',
+    },
+  ]);
+});
+
+test('should honor explicit --skill values even when the required tool is not selected', async () => {
+  const projectDir = path.join(testDir, 'skills-tools-filtering-cli');
+  const calls = createExecCommand();
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    extraTools: [
+      {
+        value: 'rstest',
+        label: 'Rstest',
+      },
+    ],
+    extraSkills: [
+      {
+        value: 'shared-docs',
+        label: 'Shared Docs',
+        source: 'acme/skills',
+        skill: 'docs/shared',
+      },
+      {
+        value: 'rstest-best-practices',
+        label: 'Rstest Best Practices',
+        source: 'rstackjs/agent-skills',
+        when: (_templateName, selectedTools) => selectedTools.includes('rstest'),
+      },
+    ],
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--tools',
+      'biome',
+      '--skill',
+      'rstest-best-practices,shared-docs',
+    ],
+  });
+
+  expect(calls).toHaveLength(2);
+  expect(calls[0]).toEqual({
+    args: [
+      '-y',
+      'skills',
+      'add',
+      'rstackjs/agent-skills',
+      '--agent',
+      'universal',
+      '--yes',
+      '--copy',
+      '--skill',
+      'rstest-best-practices',
+    ],
+    command: 'npx',
+    options: expect.objectContaining({
+      nodeOptions: expect.objectContaining({
+        cwd: projectDir,
+        stdio: 'pipe',
+      }),
+    }),
+  });
+  expect(calls[1]).toEqual({
     args: [
       '-y',
       'skills',

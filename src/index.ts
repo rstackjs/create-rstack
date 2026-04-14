@@ -234,10 +234,11 @@ async function getTools(
 function filterExtraSkills(
   extraSkills: ExtraSkill[] | undefined,
   templateName?: string,
+  tools: string[] = [],
 ) {
   return extraSkills?.filter((extraSkill) => {
     const when = extraSkill.when ?? (() => true);
-    return templateName ? when(templateName) : true;
+    return templateName ? when(templateName, tools) : true;
   });
 }
 
@@ -257,14 +258,15 @@ async function getSkills(
   { skill, dir, template }: Argv,
   extraSkills?: ExtraSkill[],
   templateName?: string,
+  tools: string[] = [],
   promptMultiselect: typeof multiselect = multiselect,
 ) {
   const parsedSkills = parseSkillsOption(skill);
-  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName);
+  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName, tools);
 
   if (parsedSkills !== null) {
     return parsedSkills.filter((value: string) =>
-      filteredExtraSkills?.some((extraSkill) => extraSkill.value === value),
+      extraSkills?.some((extraSkill) => extraSkill.value === value),
     );
   }
 
@@ -367,7 +369,7 @@ type ExtraSkill = {
   label: string;
   source: string;
   skill?: string;
-  when?: (templateName: string) => boolean;
+  when?: (templateName: string, tools: string[]) => boolean;
   order?: 'pre' | 'post';
 };
 
@@ -566,13 +568,7 @@ export async function create({
 
   const templateName = await getTemplateName(argv);
   const tools = await getTools(argv, extraTools, templateName);
-  const filteredExtraSkills = filterExtraSkills(extraSkills, templateName);
-  const skills = await getSkills(
-    argv,
-    filteredExtraSkills,
-    templateName,
-    multiselect,
-  );
+  const skills = await getSkills(argv, extraSkills, templateName, tools, multiselect);
 
   const srcFolder = path.join(root, `template-${templateName}`);
   const commonFolder = path.join(root, 'template-common');
@@ -598,7 +594,7 @@ export async function create({
   });
 
   const skillsByValue = new Map(
-    (filteredExtraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),
+    (extraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),
   );
   let currentSkillBatch: ExtraSkill[] = [];
 
