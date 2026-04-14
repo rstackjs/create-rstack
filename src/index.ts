@@ -124,6 +124,8 @@ function logHelpMessage(
   extraSkills?: ExtraSkill[],
 ) {
   const toolsList = [...BUILTIN_TOOLS];
+  // Keep help output exhaustive for discoverability. `skill.when` only gates
+  // the interactive prompt, not the documented list of available skills.
   const skillsList = (extraSkills ?? [])
     .map((skill) => skill.value)
     .filter(Boolean);
@@ -236,6 +238,8 @@ function filterExtraSkills(
   templateName?: string,
   tools: string[] = [],
 ) {
+  // `skill.when` only affects the interactive prompt. Explicit `--skill`
+  // values are handled separately in `getSkills`.
   return extraSkills?.filter((extraSkill) => {
     const when = extraSkill.when ?? (() => true);
     return templateName ? when(templateName, tools) : true;
@@ -265,6 +269,8 @@ async function getSkills(
   const filteredExtraSkills = filterExtraSkills(extraSkills, templateName, tools);
 
   if (parsedSkills !== null) {
+    // Treat explicit `--skill` values as authoritative as long as they refer to
+    // a declared skill. `skill.when` only hides options from the prompt.
     return parsedSkills.filter((value: string) =>
       extraSkills?.some((extraSkill) => extraSkill.value === value),
     );
@@ -369,6 +375,11 @@ type ExtraSkill = {
   label: string;
   source: string;
   skill?: string;
+  /**
+   * Controls whether the skill is shown in the interactive prompt for the
+   * selected template/tools. Explicit `--skill` values and `--help` remain
+   * unfiltered so CLI input stays authoritative and help stays discoverable.
+   */
   when?: (templateName: string, tools: string[]) => boolean;
   order?: 'pre' | 'post';
 };
