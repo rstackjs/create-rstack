@@ -461,6 +461,22 @@ async function runSkillCommand(
   installationTaskLog.success(`Installed ${skillNoun} ${skillLabel}`);
 }
 
+function groupContiguousSkillsBySource(skills: ExtraSkill[]) {
+  const skillGroups: ExtraSkill[][] = [];
+
+  for (const skill of skills) {
+    const lastGroup = skillGroups.at(-1);
+    if (lastGroup?.[0]?.source === skill.source) {
+      lastGroup.push(skill);
+      continue;
+    }
+
+    skillGroups.push([skill]);
+  }
+
+  return skillGroups;
+}
+
 export async function create({
   name,
   root,
@@ -603,15 +619,8 @@ export async function create({
     )
     .filter((skill): skill is ExtraSkill => Boolean(skill));
 
-  // Group selected skills by source so each repository is installed once.
-  const skillGroups = new Map<string, ExtraSkill[]>();
-  for (const skill of selectedExtraSkills) {
-    const currentSkills = skillGroups.get(skill.source) ?? [];
-    currentSkills.push(skill);
-    skillGroups.set(skill.source, currentSkills);
-  }
-
-  for (const groupedSkills of skillGroups.values()) {
+  // Batch only contiguous skills from the same source to preserve install order.
+  for (const groupedSkills of groupContiguousSkillsBySource(selectedExtraSkills)) {
     await runSkillCommand(groupedSkills, distFolder);
   }
 

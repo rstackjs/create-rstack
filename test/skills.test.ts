@@ -483,6 +483,110 @@ test('should install selected extra skills from repeated --skill flags', async (
   });
 });
 
+test('should preserve skill install order when the same source appears non-contiguously', async () => {
+  const projectDir = path.join(testDir, 'skills-preserve-order');
+  const calls = createExecCommand();
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    extraSkills: [
+      {
+        value: 'rstest-best-practices',
+        label: 'Rstest Best Practices',
+        source: 'rstackjs/agent-skills',
+      },
+      {
+        value: 'docs-writer',
+        label: 'Docs Writer',
+        source: 'acme/skills',
+      },
+      {
+        value: 'rsbuild-best-practices',
+        label: 'Rsbuild Best Practices',
+        source: 'rstackjs/agent-skills',
+      },
+    ],
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--skill',
+      'rstest-best-practices,docs-writer,rsbuild-best-practices',
+    ],
+  });
+
+  expect(calls).toHaveLength(3);
+  expect(calls[0]).toEqual({
+    args: [
+      '-y',
+      'skills',
+      'add',
+      'rstackjs/agent-skills',
+      '--agent',
+      'universal',
+      '--yes',
+      '--copy',
+      '--skill',
+      'rstest-best-practices',
+    ],
+    command: 'npx',
+    options: expect.objectContaining({
+      nodeOptions: expect.objectContaining({
+        cwd: projectDir,
+        stdio: 'pipe',
+      }),
+    }),
+  });
+  expect(calls[1]).toEqual({
+    args: [
+      '-y',
+      'skills',
+      'add',
+      'acme/skills',
+      '--agent',
+      'universal',
+      '--yes',
+      '--copy',
+      '--skill',
+      'docs-writer',
+    ],
+    command: 'npx',
+    options: expect.objectContaining({
+      nodeOptions: expect.objectContaining({
+        cwd: projectDir,
+        stdio: 'pipe',
+      }),
+    }),
+  });
+  expect(calls[2]).toEqual({
+    args: [
+      '-y',
+      'skills',
+      'add',
+      'rstackjs/agent-skills',
+      '--agent',
+      'universal',
+      '--yes',
+      '--copy',
+      '--skill',
+      'rsbuild-best-practices',
+    ],
+    command: 'npx',
+    options: expect.objectContaining({
+      nodeOptions: expect.objectContaining({
+        cwd: projectDir,
+        stdio: 'pipe',
+      }),
+    }),
+  });
+});
+
 test('should skip the skills prompt when --skill is provided', async () => {
   const projectDir = path.join(testDir, 'skills-skip-prompt-with-cli-option');
   const calls = createExecCommand();
