@@ -244,6 +244,74 @@ async function getCreateError(action: Promise<unknown>) {
 }
 
 test('should install selected extra skills from comma separated --skill option', async () => {
+  const projectDir = path.join(testDir, 'skills-comma-separated-same-source');
+  const calls = createExecCommand();
+  const taskLogEvents = mocks.state.taskLogEvents;
+  const commandLogs = mocks.state.commandLogs;
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    extraSkills: [
+      {
+        value: 'rstest-best-practices',
+        label: 'Rstest Best Practices',
+        source: 'rstackjs/agent-skills',
+      },
+      {
+        value: 'rsbuild-best-practices',
+        label: 'Rsbuild Best Practices',
+        source: 'rstackjs/agent-skills',
+      },
+    ],
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--skill',
+      'rstest-best-practices,rsbuild-best-practices',
+    ],
+  });
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toEqual({
+    args: [
+      '-y',
+      'skills',
+      'add',
+      'rstackjs/agent-skills',
+      '--agent',
+      'universal',
+      '--yes',
+      '--copy',
+      '--skill',
+      'rstest-best-practices',
+      '--skill',
+      'rsbuild-best-practices',
+    ],
+    command: 'npx',
+    options: expect.objectContaining({
+      nodeOptions: expect.objectContaining({
+        cwd: projectDir,
+        stdio: 'pipe',
+      }),
+    }),
+  });
+  expect(taskLogEvents).toEqual([
+    'create:Installing skills rstest-best-practices, rsbuild-best-practices',
+    'success:Installing skills rstest-best-practices, rsbuild-best-practices:Installed skills rstest-best-practices, rsbuild-best-practices',
+  ]);
+  expect(commandLogs).toContain(
+    `Running skill install command: ${color.dim('npx -y skills add rstackjs/agent-skills --agent universal --yes --copy --skill rstest-best-practices --skill rsbuild-best-practices')}`,
+  );
+});
+
+test('should install selected extra skills from comma separated --skill option across different sources', async () => {
   const projectDir = path.join(testDir, 'skills-comma-separated');
   const calls = createExecCommand();
   const taskLogEvents = mocks.state.taskLogEvents;
@@ -660,6 +728,53 @@ test('should throw the install command context when installation fails', async (
   expect(error).toBeInstanceOf(Error);
   expect((error as Error).message).toBe(
     'Failed to install skill "shared-docs" from "acme/skills" using command: npx -y skills add acme/skills --agent universal --yes --copy --skill docs/shared',
+  );
+});
+
+test('should throw grouped install command context when batched installation fails', async () => {
+  const projectDir = path.join(testDir, 'skills-batched-install-failure');
+  createExecCommand(() => {
+    return {
+      stdout: '',
+      stderr: 'install failed',
+      exitCode: 1,
+    };
+  });
+
+  const error = await getCreateError(
+    create({
+      name: 'test',
+      root: fixturesDir,
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      extraSkills: [
+        {
+          value: 'rstest-best-practices',
+          label: 'Rstest Best Practices',
+          source: 'rstackjs/agent-skills',
+        },
+        {
+          value: 'rsbuild-best-practices',
+          label: 'Rsbuild Best Practices',
+          source: 'rstackjs/agent-skills',
+        },
+      ],
+      argv: [
+        'node',
+        'test',
+        '--dir',
+        projectDir,
+        '--template',
+        'vanilla',
+        '--skill',
+        'rstest-best-practices,rsbuild-best-practices',
+      ],
+    }),
+  );
+
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toBe(
+    'Failed to install skills "rstest-best-practices", "rsbuild-best-practices" from "rstackjs/agent-skills" using command: npx -y skills add rstackjs/agent-skills --agent universal --yes --copy --skill rstest-best-practices --skill rsbuild-best-practices',
   );
 });
 
