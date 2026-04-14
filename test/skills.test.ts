@@ -243,7 +243,7 @@ async function getCreateError(action: Promise<unknown>) {
   throw new Error('Expected create() to throw');
 }
 
-test('should install selected extra skills from comma separated --skill option', async () => {
+test('should batch selected same-source extra skills from comma separated --skill option into a single install', async () => {
   const projectDir = path.join(testDir, 'skills-comma-separated-same-source');
   const calls = createExecCommand();
   const taskLogEvents = mocks.state.taskLogEvents;
