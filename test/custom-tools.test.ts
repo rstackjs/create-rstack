@@ -237,7 +237,7 @@ test('should filter extra tools based on template name', async () => {
         value: 'filtered-tool',
         label: 'Filtered Tool',
         // This tool should be filtered out for 'vanilla' template
-        when: (templateName) => templateName !== 'vanilla',
+        when: ({ templateName }) => templateName !== 'vanilla',
         action: () => {
           filteredToolCalled = true;
         },
@@ -246,7 +246,7 @@ test('should filter extra tools based on template name', async () => {
         value: 'allowed-tool',
         label: 'Allowed Tool',
         // This tool should be allowed for 'vanilla' template
-        when: (templateName) => templateName === 'vanilla',
+        when: ({ templateName }) => templateName === 'vanilla',
         action: () => {
           allowedToolCalled = true;
         },
