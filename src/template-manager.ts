@@ -1,8 +1,13 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const NPM_TEMPLATE_PREFIX = 'npm:';
+
+// Validates that a string looks like a valid npm package name/version
+// to prevent unexpected values from being passed to npm install
+const VALID_NPM_NAME = /^(@[\w.-]+\/)?[\w.-]+$/;
+const VALID_NPM_VERSION = /^[\w.\-+^~>=<* ]+$/;
 
 /**
  * Sanitize package name and version to create a valid cache key
@@ -58,11 +63,27 @@ export function resolveNpmTemplate(
       ? version.trim()
       : 'latest';
 
+  // Validate inputs to prevent unexpected values from reaching npm
+  if (!VALID_NPM_NAME.test(normalizedName)) {
+    throw new Error(
+      `Invalid npm package name: "${normalizedName}". Package names may only contain word characters, hyphens, and dots.`,
+    );
+  }
+  if (
+    versionSpecifier !== 'latest' &&
+    !VALID_NPM_VERSION.test(versionSpecifier)
+  ) {
+    throw new Error(
+      `Invalid version specifier: "${versionSpecifier}". Version may only contain word characters, dots, hyphens, and range operators.`,
+    );
+  }
+
   // Generate cache key
   const cacheKey = sanitizeCacheKey(normalizedName, versionSpecifier);
   const cacheRoot = options?.cacheDir || process.cwd();
   const templateDir = path.join(cacheRoot, '.temp-templates', cacheKey);
-  const installRoot = path.dirname(templateDir);
+  // Isolate each install per cache key to avoid concurrent install races
+  const installRoot = path.join(templateDir, '.install');
   const packagePath = path.join(installRoot, 'node_modules', normalizedName);
 
   // Check if we should reuse cache
@@ -74,6 +95,7 @@ export function resolveNpmTemplate(
   }
 
   // Create isolated package.json to prevent workspace conflicts
+  fs.mkdirSync(installRoot, { recursive: true });
   const anchorPkgJson = path.join(installRoot, 'package.json');
   if (!fs.existsSync(anchorPkgJson)) {
     const minimal = { name: 'create-rstack-template-cache', private: true };
@@ -84,18 +106,34 @@ export function resolveNpmTemplate(
     );
   }
 
-  // Install the package
+  // Install the package using execFileSync to avoid shell injection
   try {
-    execSync(
-      `npm install ${normalizedName}@${versionSpecifier} --no-save --package-lock=false --no-audit --no-fund --silent`,
+    execFileSync(
+      'npm',
+      [
+        'install',
+        `${normalizedName}@${versionSpecifier}`,
+        '--no-save',
+        '--package-lock=false',
+        '--no-audit',
+        '--no-fund',
+        '--silent',
+      ],
       {
         cwd: installRoot,
         stdio: 'pipe',
       },
     );
-  } catch {
+  } catch (err: unknown) {
+    const stderr =
+      err instanceof Error && 'stderr' in err
+        ? String((err as { stderr: unknown }).stderr).trim()
+        : '';
+    const detail = stderr
+      ? `\n${stderr.split('\n').slice(0, 5).join('\n')}`
+      : '';
     throw new Error(
-      `Failed to install npm template "${normalizedName}@${versionSpecifier}". Please check if the package exists.`,
+      `Failed to install npm template "${normalizedName}@${versionSpecifier}". Please check if the package exists.${detail}`,
     );
   }
 
@@ -112,8 +150,16 @@ export function resolveNpmTemplate(
       fs.existsSync(pathCandidate) &&
       fs.statSync(pathCandidate).isDirectory()
     ) {
-      // Copy to cache directory
-      fs.mkdirSync(templateDir, { recursive: true });
+      // Clear stale cache before copying to avoid leftover files from older versions
+      if (fs.existsSync(templateDir)) {
+        for (const entry of fs.readdirSync(templateDir)) {
+          if (entry === '.install') continue;
+          fs.rmSync(path.join(templateDir, entry), {
+            recursive: true,
+            force: true,
+          });
+        }
+      }
       // eslint-disable-next-line n/no-unsupported-features/node-builtins
       fs.cpSync(pathCandidate, templateDir, { recursive: true });
       return templateDir;

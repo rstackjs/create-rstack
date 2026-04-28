@@ -19,11 +19,10 @@ import deepmerge from 'deepmerge';
 import minimist from 'minimist';
 import { color, logger } from 'rslog';
 import { x } from 'tinyexec';
+import { isNpmTemplate, resolveCustomTemplate } from './template-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-import { isNpmTemplate, resolveCustomTemplate } from './template-manager.js';
 
 export { autocomplete, groupMultiselect, multiselect, select, text };
 
@@ -506,6 +505,27 @@ async function runSkillCommand(skills: ExtraSkill[], cwd: string) {
   installationTaskLog.success(`Installed ${skillNoun} ${skillLabel}`);
 }
 
+function logNextStepsAndOutro(
+  noteInformation: string[] | undefined,
+  targetDir: string,
+  packageManager: string,
+) {
+  const nextSteps = noteInformation
+    ? noteInformation
+    : [
+        `1. ${color.cyan(`cd ${targetDir}`)}`,
+        `2. ${color.cyan('git init')} ${color.dim('(optional)')}`,
+        `3. ${color.cyan(`${packageManager} install`)}`,
+        `4. ${color.cyan(`${packageManager} run dev`)}`,
+      ];
+
+  if (nextSteps.length) {
+    note(nextSteps.map((step) => color.reset(step)).join('\n'), 'Next steps');
+  }
+
+  outro('All set, happy coding!');
+}
+
 export async function create({
   name,
   root,
@@ -635,20 +655,7 @@ export async function create({
       skipFiles,
     });
 
-    const nextSteps = noteInformation
-      ? noteInformation
-      : [
-          `1. ${color.cyan(`cd ${targetDir}`)}`,
-          `2. ${color.cyan('git init')} ${color.dim('(optional)')}`,
-          `3. ${color.cyan(`${packageManager} install`)}`,
-          `4. ${color.cyan(`${packageManager} run dev`)}`,
-        ];
-
-    if (nextSteps.length) {
-      note(nextSteps.map((step) => color.reset(step)).join('\n'), 'Next steps');
-    }
-
-    outro('All set, happy coding!');
+    logNextStepsAndOutro(noteInformation, targetDir, packageManager);
     return;
   }
 
@@ -793,20 +800,7 @@ export async function create({
     );
   }
 
-  const nextSteps = noteInformation
-    ? noteInformation
-    : [
-        `1. ${color.cyan(`cd ${targetDir}`)}`,
-        `2. ${color.cyan('git init')} ${color.dim('(optional)')}`,
-        `3. ${color.cyan(`${packageManager} install`)}`,
-        `4. ${color.cyan(`${packageManager} run dev`)}`,
-      ];
-
-  if (nextSteps.length) {
-    note(nextSteps.map((step) => color.reset(step)).join('\n'), 'Next steps');
-  }
-
-  outro('All set, happy coding!');
+  logNextStepsAndOutro(noteInformation, targetDir, packageManager);
 }
 
 function sortObjectKeys(obj: Record<string, unknown>) {
