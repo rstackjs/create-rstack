@@ -333,6 +333,12 @@ export type ESLintTemplateName =
   | 'svelte-js'
   | 'svelte-ts';
 
+export type RslintTemplateName =
+  | 'vanilla-js'
+  | 'vanilla-ts'
+  | 'react-js'
+  | 'react-ts';
+
 const readJSON = async (path: string) =>
   JSON.parse(await fs.promises.readFile(path, 'utf-8'));
 
@@ -533,6 +539,7 @@ export async function create({
   skipFiles,
   getTemplateName,
   mapESLintTemplate,
+  mapRslintTemplate,
   version,
   noteInformation,
   extraTools,
@@ -552,6 +559,14 @@ export async function create({
     templateName: string,
     context: { distFolder: string },
   ) => ESLintTemplateName | null;
+  /**
+   * Map the template name to the Rslint template name.
+   * If not provided, reuses mapESLintTemplate and falls back to 'vanilla-ts'.
+   */
+  mapRslintTemplate?: (
+    templateName: string,
+    context: { distFolder: string },
+  ) => RslintTemplateName | null;
   version?: Record<string, string> | string;
   noteInformation?: string[];
   /**
@@ -757,6 +772,30 @@ export async function create({
       }
 
       const subFolder = path.join(toolFolder, eslintTemplateName);
+      copyFolder({
+        from: subFolder,
+        to: distFolder,
+        version,
+        skipFiles,
+        templateParameters,
+        isMergePackageJson: true,
+      });
+
+      agentsMdSearchDirs.push(toolFolder);
+      agentsMdSearchDirs.push(subFolder);
+      continue;
+    }
+
+    if (tool === 'rslint') {
+      const rslintTemplateName = mapRslintTemplate
+        ? mapRslintTemplate(templateName, { distFolder })
+        : 'vanilla-ts';
+
+      if (!rslintTemplateName) {
+        continue;
+      }
+
+      const subFolder = path.join(toolFolder, rslintTemplateName);
       copyFolder({
         from: subFolder,
         to: distFolder,
