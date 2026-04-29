@@ -17,6 +17,65 @@ A shared package for create-rspack, create-rsbuild, create-rspress and create-rs
 npm add create-rstack -D
 ```
 
+## Features
+
+### NPM Template Support
+
+`create-rstack` supports using npm packages as templates, allowing users to create projects from custom templates published to npm.
+
+#### Usage
+
+```bash
+# Using npm package name
+npm create rsbuild@latest my-project -- --template my-template-package
+
+# Using scoped package
+npm create rsbuild@latest my-project -- --template @scope/template-package
+
+# Using explicit npm: prefix
+npm create rsbuild@latest my-project -- --template npm:my-template-package
+
+# With specific version
+npm create rsbuild@latest my-project -- --template my-template-package --template-version 1.2.3
+```
+
+#### Template Package Structure
+
+Your npm template package should have one of the following structures:
+
+```
+my-template-package/
+├── template/              # Preferred
+│   ├── package.json
+│   └── src/
+├── templates/
+│   └── app/              # Alternative
+└── (root)                # Fallback
+    ├── package.json
+    └── src/
+```
+
+#### Caching Strategy
+
+- Templates with `latest` version are always re-installed to ensure the latest version
+- Specific versions are cached in `.temp-templates/` for faster reuse
+
+#### API
+
+```typescript
+import {
+  isNpmTemplate,
+  resolveCustomTemplate,
+  resolveNpmTemplate,
+} from 'create-rstack';
+
+// Check if template input is an npm package
+if (isNpmTemplate(templateInput)) {
+  // Resolve npm template to local path
+  const templatePath = resolveCustomTemplate(templateInput, version);
+}
+```
+
 ## Examples
 
 | Project | Link                                                                                         |

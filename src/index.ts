@@ -19,11 +19,20 @@ import deepmerge from 'deepmerge';
 import minimist from 'minimist';
 import { color, logger } from 'rslog';
 import { x } from 'tinyexec';
+import { isNpmTemplate, resolveCustomTemplate } from './template-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export { autocomplete, groupMultiselect, multiselect, select, text };
+
+// Export npm template utilities
+export {
+  isNpmTemplate,
+  resolveCustomTemplate,
+  resolveNpmTemplate,
+  sanitizeCacheKey,
+} from './template-manager.js';
 
 function cancelAndExit() {
   cancel('Operation cancelled.');
@@ -113,6 +122,8 @@ export type Argv = {
   skill?: string | string[];
   packageName?: string;
   'package-name'?: string;
+  templateVersion?: string;
+  'template-version'?: string;
 };
 
 export const BUILTIN_TOOLS = ['eslint', 'rslint', 'biome', 'prettier'];
@@ -163,6 +174,7 @@ function logHelpMessage(
       --tools <tool>        add additional tools, comma separated
 ${skillsOptionLine}      --override            override files in target directory
       --packageName <name>  specify the package name
+      --template-version <ver>  specify the npm template version
     
     Available templates:
       ${templates.join(', ')}
@@ -341,6 +353,11 @@ const parseArgv = (processArgv: string[]) => {
     argv.packageName = argv['package-name'];
   }
 
+  // Handle template-version alias
+  if (argv['template-version']) {
+    argv.templateVersion = argv['template-version'];
+  }
+
   return argv;
 };
 
@@ -488,6 +505,27 @@ async function runSkillCommand(skills: ExtraSkill[], cwd: string) {
   installationTaskLog.success(`Installed ${skillNoun} ${skillLabel}`);
 }
 
+function logNextStepsAndOutro(
+  noteInformation: string[] | undefined,
+  targetDir: string,
+  packageManager: string,
+) {
+  const nextSteps = noteInformation
+    ? noteInformation
+    : [
+        `1. ${color.cyan(`cd ${targetDir}`)}`,
+        `2. ${color.cyan('git init')} ${color.dim('(optional)')}`,
+        `3. ${color.cyan(`${packageManager} install`)}`,
+        `4. ${color.cyan(`${packageManager} run dev`)}`,
+      ];
+
+  if (nextSteps.length) {
+    note(nextSteps.map((step) => color.reset(step)).join('\n'), 'Next steps');
+  }
+
+  outro('All set, happy coding!');
+}
+
 export async function create({
   name,
   root,
@@ -592,6 +630,35 @@ export async function create({
   }
 
   const templateName = await getTemplateName(argv);
+
+  const srcFolder = path.join(root, `template-${templateName}`);
+
+  // Handle npm template: only when the local template doesn't exist
+  // and the template input looks like an npm package
+  if (
+    typeof argv.template === 'string' &&
+    isNpmTemplate(argv.template) &&
+    !fs.existsSync(srcFolder)
+  ) {
+    const templateVersion = argv.templateVersion ?? argv['template-version'];
+    const templatePath = resolveCustomTemplate(argv.template, templateVersion, {
+      cacheDir: root,
+    });
+
+    // Copy npm template directly to distFolder
+    copyFolder({
+      from: templatePath,
+      to: distFolder,
+      version,
+      packageName,
+      templateParameters,
+      skipFiles,
+    });
+
+    logNextStepsAndOutro(noteInformation, targetDir, packageManager);
+    return;
+  }
+
   const tools = await getTools(argv, extraTools, templateName);
   const skills = await getSkills(
     argv,
@@ -601,7 +668,6 @@ export async function create({
     multiselect,
   );
 
-  const srcFolder = path.join(root, `template-${templateName}`);
   const commonFolder = path.join(root, 'template-common');
 
   if (!fs.existsSync(srcFolder)) {
@@ -734,20 +800,7 @@ export async function create({
     );
   }
 
-  const nextSteps = noteInformation
-    ? noteInformation
-    : [
-        `1. ${color.cyan(`cd ${targetDir}`)}`,
-        `2. ${color.cyan('git init')} ${color.dim('(optional)')}`,
-        `3. ${color.cyan(`${packageManager} install`)}`,
-        `4. ${color.cyan(`${packageManager} run dev`)}`,
-      ];
-
-  if (nextSteps.length) {
-    note(nextSteps.map((step) => color.reset(step)).join('\n'), 'Next steps');
-  }
-
-  outro('All set, happy coding!');
+  logNextStepsAndOutro(noteInformation, targetDir, packageManager);
 }
 
 function sortObjectKeys(obj: Record<string, unknown>) {
