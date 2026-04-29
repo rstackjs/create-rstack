@@ -79,6 +79,37 @@ test('should scaffold rslint tool files', async () => {
   expect(packageJson.devDependencies['@rslint/core']).toBeTruthy();
 });
 
+test('should scaffold mapped rslint tool template', async () => {
+  const projectDir = path.join(testDir, 'mapped-rslint-tool');
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    mapRslintTemplate: () => 'react-ts',
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--tools',
+      'rslint',
+    ],
+  });
+
+  const config = fs.readFileSync(
+    path.join(projectDir, 'rslint.config.ts'),
+    'utf-8',
+  );
+
+  expect(config).toContain('reactPlugin.configs.recommended');
+  expect(config).toContain('ts.configs.recommended');
+  expect(fs.existsSync(path.join(projectDir, 'react-ts'))).toBe(false);
+});
+
 test('should skip tools selection', async () => {
   const projectDir = path.join(testDir, 'comma-separated-tools');
 
