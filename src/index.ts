@@ -212,8 +212,8 @@ async function getTools(
   }
 
   const options = [
+    { value: 'rslint', label: 'Rslint - linting' },
     { value: 'eslint', label: 'ESLint - linting' },
-    { value: 'rslint', label: 'Rslint - linting (experimental)' },
     { value: 'prettier', label: 'Prettier - formatting' },
     { value: 'biome', label: 'Biome - linting & formatting' },
   ];
