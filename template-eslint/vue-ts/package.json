@@ -8,8 +8,8 @@
   "devDependencies": {
     "@vue/eslint-config-typescript": "^14.7.0",
     "eslint": "^10.3.0",
-    "eslint-plugin-vue": "^10.9.0",
+    "eslint-plugin-vue": "^10.9.1",
     "globals": "^17.6.0",
-    "typescript-eslint": "^8.59.1"
+    "typescript-eslint": "^8.59.2"
   }
 }
