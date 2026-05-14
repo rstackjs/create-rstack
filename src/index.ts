@@ -339,6 +339,19 @@ export type RslintTemplateName =
   | 'react-js'
   | 'react-ts';
 
+const rslintTemplateNames = new Set<string>([
+  'vanilla-js',
+  'vanilla-ts',
+  'react-js',
+  'react-ts',
+]);
+
+function isRslintTemplateName(
+  templateName: ESLintTemplateName | null,
+): templateName is RslintTemplateName {
+  return templateName !== null && rslintTemplateNames.has(templateName);
+}
+
 const readJSON = async (path: string) =>
   JSON.parse(await fs.promises.readFile(path, 'utf-8'));
 
@@ -787,9 +800,18 @@ export async function create({
     }
 
     if (tool === 'rslint') {
-      const rslintTemplateName = mapRslintTemplate
-        ? mapRslintTemplate(templateName, { distFolder })
-        : 'vanilla-ts';
+      let rslintTemplateName: RslintTemplateName | null;
+
+      if (mapRslintTemplate) {
+        rslintTemplateName = mapRslintTemplate(templateName, { distFolder });
+      } else {
+        const eslintTemplateName = mapESLintTemplate
+          ? mapESLintTemplate(templateName, { distFolder })
+          : null;
+        rslintTemplateName = isRslintTemplateName(eslintTemplateName)
+          ? eslintTemplateName
+          : 'vanilla-ts';
+      }
 
       if (!rslintTemplateName) {
         continue;
