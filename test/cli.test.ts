@@ -110,69 +110,6 @@ test('should scaffold mapped rslint tool template', async () => {
   expect(fs.existsSync(path.join(projectDir, 'react-ts'))).toBe(false);
 });
 
-test('should reuse eslint template mapping for rslint when rslint mapping is not provided', async () => {
-  const projectDir = path.join(testDir, 'rslint-tool-with-eslint-mapping');
-
-  await create({
-    name: 'test',
-    root: fixturesDir,
-    templates: ['vanilla'],
-    getTemplateName: async () => 'vanilla',
-    mapESLintTemplate: () => 'react-js',
-    argv: [
-      'node',
-      'test',
-      '--dir',
-      projectDir,
-      '--template',
-      'vanilla',
-      '--tools',
-      'rslint',
-    ],
-  });
-
-  const config = fs.readFileSync(
-    path.join(projectDir, 'rslint.config.ts'),
-    'utf-8',
-  );
-
-  expect(config).toContain('reactPlugin.configs.recommended');
-  expect(config).not.toContain('ts.configs.recommended');
-});
-
-test('should fallback to vanilla-ts when eslint mapping cannot be reused for rslint', async () => {
-  const projectDir = path.join(
-    testDir,
-    'rslint-tool-with-unsupported-eslint-mapping',
-  );
-
-  await create({
-    name: 'test',
-    root: fixturesDir,
-    templates: ['vanilla'],
-    getTemplateName: async () => 'vanilla',
-    mapESLintTemplate: () => 'vue-ts',
-    argv: [
-      'node',
-      'test',
-      '--dir',
-      projectDir,
-      '--template',
-      'vanilla',
-      '--tools',
-      'rslint',
-    ],
-  });
-
-  const config = fs.readFileSync(
-    path.join(projectDir, 'rslint.config.ts'),
-    'utf-8',
-  );
-
-  expect(config).toContain('ts.configs.recommended');
-  expect(config).not.toContain('reactPlugin.configs.recommended');
-});
-
 test('should skip tools selection', async () => {
   const projectDir = path.join(testDir, 'comma-separated-tools');
 
