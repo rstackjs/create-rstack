@@ -561,7 +561,7 @@ export async function create({
   ) => ESLintTemplateName | null;
   /**
    * Map the template name to the Rslint template name.
-   * If not provided, reuses mapESLintTemplate and falls back to 'vanilla-ts'.
+   * If not provided, defaults to 'vanilla-ts' for all templates.
    */
   mapRslintTemplate?: (
     templateName: string,
