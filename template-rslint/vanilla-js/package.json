@@ -6,6 +6,6 @@
     "lint": "rslint"
   },
   "devDependencies": {
-    "@rslint/core": "^0.5.2"
+    "@rslint/core": "^0.5.3"
   }
 }
