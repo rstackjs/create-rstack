@@ -28,7 +28,7 @@
     "dev": "rslib --watch",
     "lint": "rslint && prettier . --check",
     "lint:fix": "rslint --fix && prettier . --write",
-    "prepare": "simple-git-hooks && rslib",
+    "prepare": "simple-git-hooks",
     "test": "rstest",
     "bump": "npx bumpp"
   },
