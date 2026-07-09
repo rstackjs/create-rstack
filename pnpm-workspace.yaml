@@ -8,6 +8,5 @@ minimumReleaseAgeExclude:
   - '@rslib/*'
   - '@rstest/*'
   - '@rslint/*'
-  - typescript
-  - typescript
   - '@typescript/*'
+  - typescript
