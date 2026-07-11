@@ -334,10 +334,7 @@ export type ESLintTemplateName =
   | 'svelte-ts';
 
 export type RslintTemplateName =
-  | 'vanilla-js'
-  | 'vanilla-ts'
-  | 'react-js'
-  | 'react-ts';
+  'vanilla-js' | 'vanilla-ts' | 'react-js' | 'react-ts';
 
 const readJSON = async (path: string) =>
   JSON.parse(await fs.promises.readFile(path, 'utf-8'));
