@@ -3,10 +3,14 @@ allowBuilds:
   simple-git-hooks: false
 
 minimumReleaseAgeExclude:
-  - '@rspack/*'
   - '@rsbuild/*'
   - '@rslib/*'
-  - '@rstest/*'
   - '@rslint/*'
+  - '@rspack/*'
+  - '@rspress/*'
+  - '@rstackjs/*'
+  - '@rstest/*'
   - '@typescript/*'
+  - 'rsbuild-plugin-*'
+  - rstack
   - typescript
