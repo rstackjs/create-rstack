@@ -133,3 +133,28 @@ test('should skip tools selection', async () => {
   expect(fs.existsSync(path.join(projectDir, 'eslint.config.mjs'))).toBe(false);
   expect(fs.existsSync(path.join(projectDir, '.prettierrc'))).toBe(false);
 });
+
+test('should only accept enabled built-in tools', async () => {
+  const projectDir = path.join(testDir, 'enabled-builtin-tools');
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    builtinTools: ['prettier'],
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--tools',
+      'eslint,prettier',
+    ],
+  });
+
+  expect(fs.existsSync(path.join(projectDir, 'eslint.config.mjs'))).toBe(false);
+  expect(fs.existsSync(path.join(projectDir, '.prettierrc'))).toBe(true);
+});

@@ -23,6 +23,25 @@ npm add @rstackjs/create-toolkit -D
 
 ## Features
 
+### Configure Built-in Tools
+
+The toolkit provides ESLint, Rslint, Biome, and Prettier as built-in tools. Use
+`builtinTools` to control which of them are available without affecting tools
+added through `extraTools`:
+
+```ts
+create({
+  // Disable all built-in tools.
+  builtinTools: [],
+  // Custom tools remain available.
+  extraTools: [{ value: 'custom-tool', label: 'Custom Tool' }],
+  // ...other options
+});
+```
+
+Omit the option to enable every built-in tool. Pass an array such as
+`['rslint', 'prettier']` to enable only those tools.
+
 ### NPM Template Support
 
 `@rstackjs/create-toolkit` supports using npm packages as templates, allowing users to create projects from custom templates published to npm.

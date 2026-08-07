@@ -126,15 +126,47 @@ export type Argv = {
   'template-version'?: string;
 };
 
-export const BUILTIN_TOOLS = ['eslint', 'rslint', 'biome', 'prettier'];
+export type BuiltinToolName = 'eslint' | 'rslint' | 'biome' | 'prettier';
+
+export const BUILTIN_TOOLS: BuiltinToolName[] = [
+  'eslint',
+  'rslint',
+  'biome',
+  'prettier',
+];
+
+type ToolOption = {
+  value: string;
+  label: string;
+  hint?: string;
+};
+
+const BUILTIN_TOOL_OPTIONS: Array<ToolOption & { value: BuiltinToolName }> = [
+  { value: 'rslint', label: 'Rslint - linting' },
+  { value: 'eslint', label: 'ESLint - linting' },
+  { value: 'prettier', label: 'Prettier - formatting' },
+  { value: 'biome', label: 'Biome - linting & formatting' },
+];
+
+function resolveBuiltinTools(
+  builtinTools: BuiltinToolName[] | undefined,
+): BuiltinToolName[] {
+  if (Array.isArray(builtinTools)) {
+    const selectedTools = new Set(builtinTools);
+    return BUILTIN_TOOLS.filter((tool) => selectedTools.has(tool));
+  }
+
+  return [...BUILTIN_TOOLS];
+}
 
 function logHelpMessage(
   name: string,
   templates: string[],
+  builtinTools: BuiltinToolName[] | undefined,
   extraTools?: ExtraTool[],
   extraSkills?: ExtraSkill[],
 ) {
-  const toolsList = [...BUILTIN_TOOLS];
+  const toolsList: string[] = resolveBuiltinTools(builtinTools);
   // Keep help output exhaustive for discoverability. `skill.when` only gates
   // the interactive prompt, not the documented list of available skills.
   const skillsList = (extraSkills ?? [])
@@ -154,8 +186,17 @@ function logHelpMessage(
     }
   }
 
+  const hasTools = toolsList.length > 0;
+  const toolsOptionLine = hasTools
+    ? '      --tools <tool>        add additional tools, comma separated\n'
+    : '';
   const skillsOptionLine = hasSkills
     ? '      --skill <skill>       add optional skills, comma separated\n'
+    : '';
+  const optionalToolsSection = hasTools
+    ? `
+    Optional tools:
+       ${toolsList.join(', ')}`
     : '';
   const optionalSkillsSection = hasSkills
     ? `
@@ -171,26 +212,25 @@ function logHelpMessage(
      -h, --help            display help for command
       -d, --dir <dir>       create project in specified directory
       -t, --template <tpl>  specify the template to use
-      --tools <tool>        add additional tools, comma separated
-${skillsOptionLine}      --override            override files in target directory
+${toolsOptionLine}${skillsOptionLine}      --override            override files in target directory
       --packageName <name>  specify the package name
       --template-version <ver>  specify the npm template version
     
     Available templates:
-      ${templates.join(', ')}
-
-    Optional tools:
-       ${toolsList.join(', ')}${optionalSkillsSection}
+      ${templates.join(', ')}${optionalToolsSection}${optionalSkillsSection}
 `);
 }
 
 async function getTools(
   { tools, dir, template }: Argv,
+  builtinTools: BuiltinToolName[] | undefined,
   extraTools?: ExtraTool[],
   templateName?: string,
 ) {
   // Check if tools are specified via CLI options
   const parsedTools = parseToolsOption(tools);
+  const enabledBuiltinTools = resolveBuiltinTools(builtinTools);
+  const enabledBuiltinToolSet = new Set<string>(enabledBuiltinTools);
 
   // Filter extraTools based on templateName
   const filteredExtraTools = extraTools?.filter((tool) => {
@@ -201,7 +241,7 @@ async function getTools(
   if (parsedTools !== null) {
     const toolsArr = parsedTools.filter(
       (tool) =>
-        BUILTIN_TOOLS.includes(tool) ||
+        enabledBuiltinToolSet.has(tool) ||
         filteredExtraTools?.some((extraTool) => extraTool.value === tool),
     );
     return toolsArr;
@@ -211,12 +251,9 @@ async function getTools(
     return [];
   }
 
-  const options = [
-    { value: 'rslint', label: 'Rslint - linting' },
-    { value: 'eslint', label: 'ESLint - linting' },
-    { value: 'prettier', label: 'Prettier - formatting' },
-    { value: 'biome', label: 'Biome - linting & formatting' },
-  ];
+  const options: ToolOption[] = BUILTIN_TOOL_OPTIONS.filter(({ value }) =>
+    enabledBuiltinToolSet.has(value),
+  );
 
   if (filteredExtraTools) {
     const normalize = (tool: ExtraTool) => ({
@@ -234,6 +271,10 @@ async function getTools(
         .filter((tool) => tool.order !== 'pre')
         .map(normalize),
     );
+  }
+
+  if (options.length === 0) {
+    return [];
   }
 
   return checkCancel<string[]>(
@@ -539,6 +580,7 @@ export async function create({
   mapRslintTemplate,
   version,
   noteInformation,
+  builtinTools,
   extraTools,
   extraSkills,
   argv: processArgv = process.argv,
@@ -567,6 +609,16 @@ export async function create({
   version?: Record<string, string> | string;
   noteInformation?: string[];
   /**
+   * Controls which built-in tools are available.
+   *
+   * Omit this option to enable all built-in tools. Pass an empty array to
+   * disable them, or list the built-in tools that should remain available.
+   * Additional tools are configured separately with `extraTools`.
+   *
+   * @default BUILTIN_TOOLS
+   */
+  builtinTools?: BuiltinToolName[];
+  /**
    * Specify additional tools.
    */
   extraTools?: ExtraTool[];
@@ -589,7 +641,7 @@ export async function create({
   const argv = parseArgv(processArgv);
 
   if (argv.help) {
-    logHelpMessage(name, templates, extraTools, extraSkills);
+    logHelpMessage(name, templates, builtinTools, extraTools, extraSkills);
     return;
   }
 
@@ -671,7 +723,7 @@ export async function create({
     return;
   }
 
-  const tools = await getTools(argv, extraTools, templateName);
+  const tools = await getTools(argv, builtinTools, extraTools, templateName);
   const skills = await getSkills(
     argv,
     extraSkills,

@@ -1,7 +1,4 @@
 {
   "search.useIgnoreFiles": true,
-  "cSpell.words": [
-    "rslint",
-    "rstackjs"
-  ]
+  "cSpell.words": ["rslint", "rstackjs"]
 }
