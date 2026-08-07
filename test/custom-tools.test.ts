@@ -281,3 +281,38 @@ test('should filter extra tools based on template name', async () => {
   // no-filter-tool should run because it has no `when`
   expect(noFilterToolCalled).toBe(true);
 });
+
+test('should keep extra tools when built-in tools are disabled', async () => {
+  const projectDir = path.join(testDir, 'extra-tool-without-builtin-tools');
+  let actionCalled = false;
+
+  await create({
+    name: 'test',
+    root: fixturesDir,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    builtinTools: [],
+    extraTools: [
+      {
+        value: 'custom-action',
+        label: 'Custom Action',
+        action: () => {
+          actionCalled = true;
+        },
+      },
+    ],
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      '--tools',
+      'eslint,custom-action',
+    ],
+  });
+
+  expect(actionCalled).toBe(true);
+  expect(fs.existsSync(path.join(projectDir, 'eslint.config.mjs'))).toBe(false);
+});

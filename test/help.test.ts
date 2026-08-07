@@ -31,6 +31,72 @@ test('help message includes extra tools', async () => {
   expect(logOutput).toContain('eslint, rslint, biome, prettier, custom-tool');
 });
 
+test('help message excludes disabled built-in tools', async () => {
+  const logs: string[] = [];
+  const originalLog = logger.log;
+
+  logger.override({
+    log: (message?: unknown) => {
+      logs.push(String(message ?? ''));
+    },
+  });
+
+  try {
+    await create({
+      name: 'test',
+      root: '.',
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      builtinTools: [],
+      extraTools: [{ value: 'custom-tool', label: 'Custom Tool' }],
+      argv: ['node', 'test', '--help'],
+    });
+  } finally {
+    logger.override({
+      log: originalLog,
+    });
+  }
+
+  const logOutput = logs.join('\n');
+  expect(logOutput).toContain('--tools <tool>');
+  expect(logOutput).toContain('Optional tools:');
+  expect(logOutput).toContain('custom-tool');
+  expect(logOutput).not.toContain('eslint');
+  expect(logOutput).not.toContain('rslint');
+  expect(logOutput).not.toContain('biome');
+  expect(logOutput).not.toContain('prettier');
+});
+
+test('help message hides tools when all tools are disabled', async () => {
+  const logs: string[] = [];
+  const originalLog = logger.log;
+
+  logger.override({
+    log: (message?: unknown) => {
+      logs.push(String(message ?? ''));
+    },
+  });
+
+  try {
+    await create({
+      name: 'test',
+      root: '.',
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      builtinTools: [],
+      argv: ['node', 'test', '--help'],
+    });
+  } finally {
+    logger.override({
+      log: originalLog,
+    });
+  }
+
+  const logOutput = logs.join('\n');
+  expect(logOutput).not.toContain('--tools <tool>');
+  expect(logOutput).not.toContain('Optional tools:');
+});
+
 test('help message hides skill help when no optional skills are configured', async () => {
   const logs: string[] = [];
   const originalLog = logger.log;
