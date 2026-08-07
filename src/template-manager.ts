@@ -98,7 +98,7 @@ export function resolveNpmTemplate(
   fs.mkdirSync(installRoot, { recursive: true });
   const anchorPkgJson = path.join(installRoot, 'package.json');
   if (!fs.existsSync(anchorPkgJson)) {
-    const minimal = { name: 'create-rstack-template-cache', private: true };
+    const minimal = { name: 'create-toolkit-template-cache', private: true };
     fs.writeFileSync(
       anchorPkgJson,
       `${JSON.stringify(minimal, null, 2)}\n`,
@@ -192,6 +192,6 @@ export function resolveCustomTemplate(
     return resolveNpmTemplate(trimmedInput, version, options);
   }
 
-  // For GitHub URLs or local paths, return as-is (handled by create-rstack)
+  // For GitHub URLs or local paths, return as-is (handled by create-toolkit)
   return trimmedInput;
 }

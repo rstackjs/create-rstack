@@ -1,12 +1,16 @@
-# create-rstack
+# @rstackjs/create-toolkit
 
 A shared package for create-rspack, create-rsbuild, create-rspress and create-rslib.
 
 > This package should only be used in Rstack projects.
 
+> [!NOTE]
+> This package was renamed from `create-rstack` to `@rstackjs/create-toolkit`.
+> Update your dependencies and imports to use the new package name.
+
 <p>
-  <a href="https://npmjs.com/package/create-rstack">
-   <img src="https://img.shields.io/npm/v/create-rstack?style=flat-square&colorA=564341&colorB=EDED91" alt="npm version" />
+  <a href="https://npmjs.com/package/@rstackjs/create-toolkit">
+   <img src="https://img.shields.io/npm/v/@rstackjs/create-toolkit?style=flat-square&colorA=564341&colorB=EDED91" alt="npm version" />
   </a>
   <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square&colorA=564341&colorB=EDED91" alt="license" />
 </p>
@@ -14,14 +18,14 @@ A shared package for create-rspack, create-rsbuild, create-rspress and create-rs
 ## Install
 
 ```bash
-npm add create-rstack -D
+npm add @rstackjs/create-toolkit -D
 ```
 
 ## Features
 
 ### NPM Template Support
 
-`create-rstack` supports using npm packages as templates, allowing users to create projects from custom templates published to npm.
+`@rstackjs/create-toolkit` supports using npm packages as templates, allowing users to create projects from custom templates published to npm.
 
 #### Usage
 
@@ -67,7 +71,7 @@ import {
   isNpmTemplate,
   resolveCustomTemplate,
   resolveNpmTemplate,
-} from 'create-rstack';
+} from '@rstackjs/create-toolkit';
 
 // Check if template input is an npm package
 if (isNpmTemplate(templateInput)) {
