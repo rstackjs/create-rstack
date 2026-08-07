@@ -1,6 +1,6 @@
 # @rstackjs/create-toolkit
 
-A shared package for create-rspack, create-rsbuild, create-rspress and create-rslib.
+A shared package for create-rspack, create-rsbuild, create-rslib and more.
 
 > This package should only be used in Rstack projects.
 
