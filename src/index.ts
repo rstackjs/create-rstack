@@ -82,6 +82,16 @@ function pkgFromUserAgent(userAgent: string | undefined) {
   };
 }
 
+const PACKAGE_MANAGER_FILES = [
+  { file: 'pnpm-workspace.yaml', packageManager: 'pnpm' },
+];
+
+function getPackageManagerSkipFiles(packageManager: string) {
+  return PACKAGE_MANAGER_FILES.filter(
+    (item) => item.packageManager !== packageManager,
+  ).map((item) => item.file);
+}
+
 function isEmptyDir(path: string) {
   const files = fs.readdirSync(path);
   return files.length === 0 || (files.length === 1 && files[0] === '.git');
@@ -771,6 +781,11 @@ export async function create({
     return;
   }
 
+  const localSkipFiles = [
+    ...(skipFiles ?? []),
+    ...getPackageManagerSkipFiles(packageManager),
+  ];
+
   const tools = await getTools(argv, builtinTools, extraTools, templateName);
   const skills = await getSkills(
     argv,
@@ -790,7 +805,7 @@ export async function create({
     from: commonFolder,
     to: distFolder,
     version,
-    skipFiles,
+    skipFiles: localSkipFiles,
     templateParameters,
   });
   copyFolder({
@@ -799,7 +814,7 @@ export async function create({
     version,
     packageName,
     templateParameters,
-    skipFiles,
+    skipFiles: localSkipFiles,
   });
 
   if (git) {
@@ -877,7 +892,7 @@ export async function create({
         from: subFolder,
         to: distFolder,
         version,
-        skipFiles,
+        skipFiles: localSkipFiles,
         templateParameters,
         isMergePackageJson: true,
       });
@@ -901,7 +916,7 @@ export async function create({
         from: subFolder,
         to: distFolder,
         version,
-        skipFiles,
+        skipFiles: localSkipFiles,
         templateParameters,
         isMergePackageJson: true,
       });
@@ -915,7 +930,7 @@ export async function create({
       from: toolFolder,
       to: distFolder,
       version,
-      skipFiles,
+      skipFiles: localSkipFiles,
       templateParameters,
       isMergePackageJson: true,
     });

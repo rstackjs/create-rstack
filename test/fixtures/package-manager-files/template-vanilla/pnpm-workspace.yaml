@@ -1,0 +1,2 @@
+allowBuilds:
+  test-package: false
