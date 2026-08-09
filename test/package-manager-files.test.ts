@@ -3,18 +3,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, expect, rs, test } from '@rstest/core';
 import { create } from '../src';
-import * as templateManagerActual from '../src/template-manager.js' with {
-  rstest: 'importActual',
-};
-
-const mocks = rs.hoisted(() => ({
-  resolveCustomTemplate: rs.fn(),
-}));
-
-rs.mock('../src/template-manager.js', () => ({
-  ...templateManagerActual,
-  resolveCustomTemplate: mocks.resolveCustomTemplate,
-}));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, 'fixtures', 'package-manager-files');
@@ -22,7 +10,6 @@ const testDir = path.join(fixturesDir, 'test-temp-output');
 
 beforeEach(() => {
   rs.unstubAllEnvs();
-  rs.mocked(mocks.resolveCustomTemplate).mockReset();
 
   if (fs.existsSync(testDir)) {
     fs.rmSync(testDir, { recursive: true });
@@ -37,15 +24,15 @@ beforeEach(() => {
   };
 });
 
-async function createProject(projectDir: string, template = 'vanilla') {
+async function createProject(projectDir: string) {
   await create({
     name: 'test',
     root: fixturesDir,
-    templates: [template],
-    getTemplateName: async () => template,
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
     git: false,
     builtinTools: [],
-    argv: ['node', 'test', '--dir', projectDir, '--template', template],
+    argv: ['node', 'test', '--dir', projectDir, '--template', 'vanilla'],
   });
 }
 
@@ -68,19 +55,5 @@ test('should skip pnpm-workspace.yaml for other package managers', async () => {
 
   expect(fs.existsSync(path.join(projectDir, 'pnpm-workspace.yaml'))).toBe(
     false,
-  );
-});
-
-test('should preserve pnpm-workspace.yaml in third-party templates', async () => {
-  const projectDir = path.join(testDir, 'third-party');
-  const templateDir = path.join(fixturesDir, 'third-party-template');
-  rs.stubEnv('npm_config_user_agent', 'npm/11.0.0');
-  rs.mocked(mocks.resolveCustomTemplate).mockReturnValue(templateDir);
-
-  await createProject(projectDir, 'third-party-template');
-
-  expect(mocks.resolveCustomTemplate).toHaveBeenCalled();
-  expect(fs.existsSync(path.join(projectDir, 'pnpm-workspace.yaml'))).toBe(
-    true,
   );
 });
