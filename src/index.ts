@@ -560,7 +560,10 @@ function initGit(cwd: string) {
     );
 
     // Reuse the current repository instead of creating a nested one.
-    if (repositoryCheck.exitCode === 0) {
+    if (
+      repositoryCheck.exitCode === 0 &&
+      repositoryCheck.stdout.trim() === 'true'
+    ) {
       return;
     }
 

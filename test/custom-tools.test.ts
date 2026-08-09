@@ -29,7 +29,7 @@ const mocks = rs.hoisted(() => {
       // rslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any,
     // rslint-disable-next-line @typescript-eslint/no-explicit-any
-    xSync: rs.fn(() => ({ stdout: '', stderr: '', exitCode: 0 })) as any,
+    xSync: rs.fn(() => ({ stdout: 'true\n', stderr: '', exitCode: 0 })) as any,
   };
 });
 

@@ -69,7 +69,7 @@ const mocks = rs.hoisted(() => {
 
   const xSync = rs.fn((command: string, args: string[], options: unknown) => {
     return {
-      stdout: '',
+      stdout: 'true\n',
       stderr: '',
       exitCode: 0,
     };
