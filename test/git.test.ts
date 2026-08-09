@@ -18,8 +18,8 @@ rs.mock('tinyexec', () => ({
   xSync: mocks.xSync,
 }));
 
-const createResult = (exitCode: number, stderr = '') => ({
-  stdout: '',
+const createResult = (exitCode: number, stdout = '', stderr = '') => ({
+  stdout,
   stderr,
   exitCode,
 });
@@ -71,7 +71,7 @@ test('should initialize a Git repository by default', async () => {
 
 test('should reuse an existing Git repository', async () => {
   const projectDir = path.join(testDir, 'existing');
-  rs.mocked(mocks.xSync).mockReturnValue(createResult(0));
+  rs.mocked(mocks.xSync).mockReturnValue(createResult(0, 'true\n'));
 
   await createProject(projectDir);
 
@@ -81,6 +81,17 @@ test('should reuse an existing Git repository', async () => {
     ['rev-parse', '--is-inside-work-tree'],
     { nodeOptions: { cwd: projectDir } },
   );
+});
+
+test('should initialize Git when the current repository is bare', async () => {
+  const projectDir = path.join(testDir, 'bare');
+  rs.mocked(mocks.xSync).mockReturnValueOnce(createResult(0, 'false\n'));
+
+  await createProject(projectDir);
+
+  expect(mocks.xSync).toHaveBeenNthCalledWith(2, 'git', ['init'], {
+    nodeOptions: { cwd: projectDir },
+  });
 });
 
 test('should skip Git initialization when disabled', async () => {
@@ -96,7 +107,7 @@ test('should continue when Git initialization fails', async () => {
   rs.mocked(mocks.xSync).mockImplementation((_command, args) =>
     args[0] === 'rev-parse'
       ? createResult(128)
-      : createResult(1, 'Git is unavailable'),
+      : createResult(1, '', 'Git is unavailable'),
   );
 
   await expect(createProject(projectDir)).resolves.toBeUndefined();
