@@ -42,6 +42,12 @@ create({
 Omit the option to enable every built-in tool. Pass an array such as
 `['rslint', 'prettier']` to enable only those tools.
 
+### Package Manager Configuration
+
+When a local template contains `pnpm-workspace.yaml`, the file is only copied
+if the project is created with pnpm. Templates loaded from third-party npm
+packages are copied without this filtering.
+
 ### Git Initialization
 
 By default, the toolkit initializes a Git repository after creating the
