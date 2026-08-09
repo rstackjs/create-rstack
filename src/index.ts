@@ -127,6 +127,7 @@ export type Argv = {
   help?: boolean;
   dir?: string;
   template?: string;
+  git?: boolean;
   override?: boolean;
   tools?: string | string[];
   skill?: string | string[];
@@ -172,6 +173,7 @@ function resolveBuiltinTools(
 function logHelpMessage(
   name: string,
   templates: string[],
+  git: boolean,
   builtinTools: BuiltinToolName[] | undefined,
   extraTools?: ExtraTool[],
   extraSkills?: ExtraSkill[],
@@ -197,6 +199,9 @@ function logHelpMessage(
   }
 
   const hasTools = toolsList.length > 0;
+  const gitOptionLine = git
+    ? '      --no-git              skip Git repository initialization\n'
+    : '';
   const toolsOptionLine = hasTools
     ? '      --tools <tool>        add additional tools, comma separated\n'
     : '';
@@ -222,7 +227,7 @@ function logHelpMessage(
      -h, --help            display help for command
       -d, --dir <dir>       create project in specified directory
       -t, --template <tpl>  specify the template to use
-${toolsOptionLine}${skillsOptionLine}      --override            override files in target directory
+${gitOptionLine}${toolsOptionLine}${skillsOptionLine}      --override            override files in target directory
       --packageName <name>  specify the package name
       --template-version <ver>  specify the npm template version
     
@@ -396,6 +401,8 @@ const readPackageJson = async (filePath: string) =>
 const parseArgv = (processArgv: string[]) => {
   const argv = minimist<Argv>(processArgv.slice(2), {
     alias: { h: 'help', d: 'dir', t: 'template' },
+    boolean: ['git'],
+    default: { git: true },
   });
 
   // Set dir to first argument if not specified via `--dir`
@@ -656,8 +663,8 @@ export async function create({
   version?: Record<string, string> | string;
   noteInformation?: string[];
   /**
-   * Whether to initialize a Git repository when the target directory is not
-   * already inside one.
+   * Whether to initialize a Git repository by default when the target directory
+   * is not already inside one. Users can opt out with `--no-git`.
    *
    * @default true
    */
@@ -693,9 +700,10 @@ export async function create({
   }
 
   const argv = parseArgv(processArgv);
+  const shouldInitGit = git && argv.git !== false;
 
   if (argv.help) {
-    logHelpMessage(name, templates, builtinTools, extraTools, extraSkills);
+    logHelpMessage(name, templates, git, builtinTools, extraTools, extraSkills);
     return;
   }
 
@@ -773,7 +781,7 @@ export async function create({
       skipFiles,
     });
 
-    if (git) {
+    if (shouldInitGit) {
       initGit(distFolder);
     }
 
@@ -817,7 +825,7 @@ export async function create({
     skipFiles: localSkipFiles,
   });
 
-  if (git) {
+  if (shouldInitGit) {
     initGit(distFolder);
   }
 
