@@ -18,7 +18,7 @@ import { determineAgent } from '@vercel/detect-agent';
 import deepmerge from 'deepmerge';
 import minimist from 'minimist';
 import { color, logger } from 'rslog';
-import { x } from 'tinyexec';
+import { x, xSync } from 'tinyexec';
 import { isNpmTemplate, resolveCustomTemplate } from './template-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -549,6 +549,40 @@ async function runSkillCommand(skills: ExtraSkill[], cwd: string) {
   installationTaskLog.success(`Installed ${skillNoun} ${skillLabel}`);
 }
 
+function initGit(cwd: string) {
+  try {
+    const repositoryCheck = xSync(
+      'git',
+      ['rev-parse', '--is-inside-work-tree'],
+      {
+        nodeOptions: { cwd },
+      },
+    );
+
+    // Reuse the current repository instead of creating a nested one.
+    if (repositoryCheck.exitCode === 0) {
+      return;
+    }
+
+    const result = xSync('git', ['init'], {
+      nodeOptions: { cwd },
+    });
+
+    if (result.exitCode === 0) {
+      log.success('Initialized Git repository.');
+      return;
+    }
+
+    const details = result.stderr.trim();
+    log.warn(
+      `Failed to initialize Git repository.${details ? ` ${details}` : ''}`,
+    );
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    log.warn(`Failed to initialize Git repository. ${details}`);
+  }
+}
+
 function logNextStepsAndOutro(
   noteInformation: string[] | undefined,
   targetDir: string,
@@ -558,9 +592,8 @@ function logNextStepsAndOutro(
     ? noteInformation
     : [
         `1. ${color.cyan(`cd ${targetDir}`)}`,
-        `2. ${color.cyan('git init')} ${color.dim('(optional)')}`,
-        `3. ${color.cyan(`${packageManager} install`)}`,
-        `4. ${color.cyan(`${packageManager} run dev`)}`,
+        `2. ${color.cyan(`${packageManager} install`)}`,
+        `3. ${color.cyan(`${packageManager} run dev`)}`,
       ];
 
   if (nextSteps.length) {
@@ -580,6 +613,7 @@ export async function create({
   mapRslintTemplate,
   version,
   noteInformation,
+  git = true,
   builtinTools,
   extraTools,
   extraSkills,
@@ -608,6 +642,13 @@ export async function create({
   ) => RslintTemplateName | null;
   version?: Record<string, string> | string;
   noteInformation?: string[];
+  /**
+   * Whether to initialize a Git repository when the target directory is not
+   * already inside one.
+   *
+   * @default true
+   */
+  git?: boolean;
   /**
    * Controls which built-in tools are available.
    *
@@ -719,6 +760,10 @@ export async function create({
       skipFiles,
     });
 
+    if (git) {
+      initGit(distFolder);
+    }
+
     logNextStepsAndOutro(noteInformation, targetDir, packageManager);
     return;
   }
@@ -753,6 +798,10 @@ export async function create({
     templateParameters,
     skipFiles,
   });
+
+  if (git) {
+    initGit(distFolder);
+  }
 
   const skillsByValue = new Map(
     (extraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),

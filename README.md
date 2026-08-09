@@ -42,6 +42,22 @@ create({
 Omit the option to enable every built-in tool. Pass an array such as
 `['rslint', 'prettier']` to enable only those tools.
 
+### Git Initialization
+
+By default, the toolkit initializes a Git repository after creating the
+project. If the target directory is already inside a Git worktree, the existing
+repository is reused to avoid creating a nested repository.
+
+Set `git` to `false` to skip Git initialization. Integrations can map their own
+CLI option, such as `--not-git`, to this value:
+
+```ts
+create({
+  git: false,
+  // ...other options
+});
+```
+
 ### NPM Template Support
 
 `@rstackjs/create-toolkit` supports using npm packages as templates, allowing users to create projects from custom templates published to npm.
