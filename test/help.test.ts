@@ -2,6 +2,63 @@ import { expect, test } from '@rstest/core';
 import { logger } from 'rslog';
 import { create } from '../src';
 
+test('help message includes the Git opt-out option', async () => {
+  const logs: string[] = [];
+  const originalLog = logger.log;
+
+  logger.override({
+    log: (message?: unknown) => {
+      logs.push(String(message ?? ''));
+    },
+  });
+
+  try {
+    await create({
+      name: 'test',
+      root: '.',
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      argv: ['node', 'test', '--help'],
+    });
+  } finally {
+    logger.override({
+      log: originalLog,
+    });
+  }
+
+  expect(logs.join('\n')).toContain(
+    '--no-git              skip Git repository initialization',
+  );
+});
+
+test('help message hides the Git opt-out option when Git is disabled', async () => {
+  const logs: string[] = [];
+  const originalLog = logger.log;
+
+  logger.override({
+    log: (message?: unknown) => {
+      logs.push(String(message ?? ''));
+    },
+  });
+
+  try {
+    await create({
+      name: 'test',
+      root: '.',
+      templates: ['vanilla'],
+      getTemplateName: async () => 'vanilla',
+      git: false,
+      argv: ['node', 'test', '--help'],
+    });
+  } finally {
+    logger.override({
+      log: originalLog,
+    });
+  }
+
+  expect(logs.join('\n')).not.toContain('--no-git');
+});
+
 test('help message includes extra tools', async () => {
   const logs: string[] = [];
   const originalLog = logger.log;

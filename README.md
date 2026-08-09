@@ -54,8 +54,7 @@ By default, the toolkit initializes a Git repository after creating the
 project. If the target directory is already inside a Git worktree, the existing
 repository is reused to avoid creating a nested repository.
 
-Set `git` to `false` to skip Git initialization. Integrations can map their own
-CLI option, such as `--not-git`, to this value:
+Set `git` to `false` to disable Git initialization:
 
 ```ts
 create({

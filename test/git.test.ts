@@ -42,14 +42,26 @@ beforeEach(() => {
   };
 });
 
-async function createProject(projectDir: string, git?: boolean) {
+async function createProject(
+  projectDir: string,
+  git?: boolean,
+  extraArgv: string[] = [],
+) {
   await create({
     name: 'test',
     root: fixturesDir,
     templates: ['vanilla'],
     getTemplateName: async () => 'vanilla',
     git,
-    argv: ['node', 'test', '--dir', projectDir, '--template', 'vanilla'],
+    argv: [
+      'node',
+      'test',
+      '--dir',
+      projectDir,
+      '--template',
+      'vanilla',
+      ...extraArgv,
+    ],
   });
 }
 
@@ -98,6 +110,14 @@ test('should skip Git initialization when disabled', async () => {
   const projectDir = path.join(testDir, 'disabled');
 
   await createProject(projectDir, false);
+
+  expect(mocks.xSync).not.toHaveBeenCalled();
+});
+
+test('should skip Git initialization with --no-git', async () => {
+  const projectDir = path.join(testDir, 'no-git');
+
+  await createProject(projectDir, undefined, ['--no-git']);
 
   expect(mocks.xSync).not.toHaveBeenCalled();
 });
