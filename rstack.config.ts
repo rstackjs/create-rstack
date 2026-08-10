@@ -22,7 +22,6 @@ define.lint(async () => {
 });
 
 define.fmt({
-  ignorePatterns: ['pnpm-lock.yaml'],
   singleQuote: true,
 });
 
