@@ -134,6 +134,7 @@ export function resolveNpmTemplate(
       : '';
     throw new Error(
       `Failed to install npm template "${normalizedName}@${versionSpecifier}". Please check if the package exists.${detail}`,
+      { cause: err },
     );
   }
 
