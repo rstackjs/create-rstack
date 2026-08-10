@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, expect, rs, test } from '@rstest/core';
-import { create } from '../src';
+import { create, type GitResolvedContext } from '../src';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, 'fixtures', 'basic');
@@ -46,6 +46,7 @@ async function createProject(
   projectDir: string,
   git?: boolean,
   extraArgv: string[] = [],
+  onGitResolved?: (context: GitResolvedContext) => void | Promise<void>,
 ) {
   await create({
     name: 'test',
@@ -53,6 +54,7 @@ async function createProject(
     templates: ['vanilla'],
     getTemplateName: async () => 'vanilla',
     git,
+    onGitResolved,
     argv: [
       'node',
       'test',
@@ -73,7 +75,7 @@ test('should initialize a Git repository by default', async () => {
   expect(mocks.xSync).toHaveBeenNthCalledWith(
     1,
     'git',
-    ['rev-parse', '--is-inside-work-tree'],
+    ['rev-parse', '--is-inside-work-tree', '--show-prefix'],
     { nodeOptions: { cwd: projectDir } },
   );
   expect(mocks.xSync).toHaveBeenNthCalledWith(2, 'git', ['init'], {
@@ -83,21 +85,21 @@ test('should initialize a Git repository by default', async () => {
 
 test('should reuse an existing Git repository', async () => {
   const projectDir = path.join(testDir, 'existing');
-  rs.mocked(mocks.xSync).mockReturnValue(createResult(0, 'true\n'));
+  rs.mocked(mocks.xSync).mockReturnValue(createResult(0, 'true\n\n'));
 
   await createProject(projectDir);
 
   expect(mocks.xSync).toHaveBeenCalledTimes(1);
   expect(mocks.xSync).toHaveBeenCalledWith(
     'git',
-    ['rev-parse', '--is-inside-work-tree'],
+    ['rev-parse', '--is-inside-work-tree', '--show-prefix'],
     { nodeOptions: { cwd: projectDir } },
   );
 });
 
 test('should initialize Git when the current repository is bare', async () => {
   const projectDir = path.join(testDir, 'bare');
-  rs.mocked(mocks.xSync).mockReturnValueOnce(createResult(0, 'false\n'));
+  rs.mocked(mocks.xSync).mockReturnValueOnce(createResult(0, 'false\n\n'));
 
   await createProject(projectDir);
 
@@ -132,4 +134,61 @@ test('should continue when Git initialization fails', async () => {
 
   await expect(createProject(projectDir)).resolves.toBeUndefined();
   expect(mocks.xSync).toHaveBeenCalledTimes(2);
+});
+
+test('should resolve Git after copying template files', async () => {
+  const projectDir = path.join(testDir, 'resolved');
+  let resolvedContext: GitResolvedContext | undefined;
+
+  rs.mocked(mocks.xSync)
+    .mockReturnValueOnce(createResult(128))
+    .mockReturnValueOnce(createResult(0));
+
+  await createProject(projectDir, undefined, [], (context) => {
+    expect(fs.existsSync(path.join(projectDir, 'package.json'))).toBe(true);
+    resolvedContext = context;
+  });
+
+  expect(resolvedContext).toEqual({
+    templateName: 'vanilla',
+    distFolder: projectDir,
+    gitEnabled: true,
+    isGitRoot: true,
+  });
+  expect(mocks.xSync).toHaveBeenCalledTimes(2);
+});
+
+test('should report when the project is inside an existing repository', async () => {
+  const projectDir = path.join(testDir, 'nested');
+  let resolvedContext: GitResolvedContext | undefined;
+
+  rs.mocked(mocks.xSync).mockReturnValueOnce(
+    createResult(0, 'true\npackages/app/\n'),
+  );
+
+  await createProject(projectDir, undefined, [], (context) => {
+    resolvedContext = context;
+  });
+
+  expect(resolvedContext).toMatchObject({
+    gitEnabled: true,
+    isGitRoot: false,
+  });
+});
+
+test('should resolve the repository state when Git initialization is disabled', async () => {
+  const projectDir = path.join(testDir, 'resolved-disabled');
+  let resolvedContext: GitResolvedContext | undefined;
+
+  rs.mocked(mocks.xSync).mockReturnValueOnce(createResult(0, 'true\n\n'));
+
+  await createProject(projectDir, undefined, ['--no-git'], (context) => {
+    resolvedContext = context;
+  });
+
+  expect(resolvedContext).toMatchObject({
+    gitEnabled: false,
+    isGitRoot: true,
+  });
+  expect(mocks.xSync).toHaveBeenCalledTimes(1);
 });
