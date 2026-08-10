@@ -63,6 +63,24 @@ create({
 });
 ```
 
+Use `onGitResolved` to run project-specific setup after template files are
+copied and Git initialization has been resolved:
+
+```ts
+create({
+  onGitResolved: async ({ distFolder, gitEnabled, isGitRoot }) => {
+    if (gitEnabled && isGitRoot) {
+      // Add files that should only exist at the Git repository root.
+    }
+  },
+  // ...other options
+});
+```
+
+The callback runs for both enabled and disabled Git initialization. `isGitRoot`
+indicates whether the generated project directory is the root of its Git
+worktree.
+
 ### NPM Template Support
 
 `@rstackjs/create-toolkit` supports using npm packages as templates, allowing users to create projects from custom templates published to npm.

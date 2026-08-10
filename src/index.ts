@@ -137,6 +137,18 @@ export type Argv = {
   'template-version'?: string;
 };
 
+export type GitContext = {
+  /** Whether Git initialization is enabled for the generated project. */
+  gitEnabled: boolean;
+  /** Whether the generated project is the root of its Git worktree. */
+  isGitRoot: boolean;
+};
+
+export type GitResolvedContext = GitContext & {
+  templateName: string;
+  distFolder: string;
+};
+
 export type BuiltinToolName = 'eslint' | 'rslint' | 'biome' | 'prettier';
 
 export const BUILTIN_TOOLS: BuiltinToolName[] = [
@@ -566,31 +578,40 @@ async function runSkillCommand(skills: ExtraSkill[], cwd: string) {
   installationTaskLog.success(`Installed ${skillNoun} ${skillLabel}`);
 }
 
-function initGit(cwd: string) {
+function detectGitRoot(cwd: string): boolean | null {
   try {
-    const repositoryCheck = xSync(
+    const result = xSync(
       'git',
-      ['rev-parse', '--is-inside-work-tree'],
-      {
-        nodeOptions: { cwd },
-      },
+      ['rev-parse', '--is-inside-work-tree', '--show-prefix'],
+      { nodeOptions: { cwd } },
     );
 
-    // Reuse the current repository instead of creating a nested one.
-    if (
-      repositoryCheck.exitCode === 0 &&
-      repositoryCheck.stdout.trim() === 'true'
-    ) {
-      return;
+    if (result.exitCode !== 0) {
+      return null;
     }
 
+    const [insideWorkTree, prefix] = result.stdout.split(/\r?\n/u);
+    return insideWorkTree === 'true' ? prefix === '' : null;
+  } catch {
+    return null;
+  }
+}
+
+function initGit(cwd: string) {
+  const currentIsGitRoot = detectGitRoot(cwd);
+  if (currentIsGitRoot !== null) {
+    // Reuse the current repository instead of creating a nested one.
+    return currentIsGitRoot;
+  }
+
+  try {
     const result = xSync('git', ['init'], {
       nodeOptions: { cwd },
     });
 
     if (result.exitCode === 0) {
       log.success('Initialized Git repository.');
-      return;
+      return true;
     }
 
     const details = result.stderr.trim();
@@ -600,6 +621,37 @@ function initGit(cwd: string) {
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
     log.warn(`Failed to initialize Git repository. ${details}`);
+  }
+
+  return false;
+}
+
+async function resolveGit({
+  gitEnabled,
+  distFolder,
+  templateName,
+  onGitResolved,
+}: {
+  gitEnabled: boolean;
+  distFolder: string;
+  templateName: string;
+  onGitResolved?: (context: GitResolvedContext) => void | Promise<void>;
+}) {
+  let projectIsGitRoot = false;
+
+  if (gitEnabled) {
+    projectIsGitRoot = initGit(distFolder);
+  } else if (onGitResolved) {
+    projectIsGitRoot = detectGitRoot(distFolder) ?? false;
+  }
+
+  if (onGitResolved) {
+    await onGitResolved({
+      templateName,
+      distFolder,
+      gitEnabled,
+      isGitRoot: projectIsGitRoot,
+    });
   }
 }
 
@@ -634,6 +686,7 @@ export async function create({
   version,
   noteInformation,
   git = true,
+  onGitResolved,
   builtinTools,
   extraTools,
   extraSkills,
@@ -670,6 +723,11 @@ export async function create({
    */
   git?: boolean;
   /**
+   * Runs after template files are copied and the optional Git initialization
+   * has been resolved.
+   */
+  onGitResolved?: (context: GitResolvedContext) => void | Promise<void>;
+  /**
    * Controls which built-in tools are available.
    *
    * Omit this option to enable all built-in tools. Pass an empty array to
@@ -700,7 +758,7 @@ export async function create({
   }
 
   const argv = parseArgv(processArgv);
-  const shouldInitGit = git && argv.git !== false;
+  const gitEnabled = git && argv.git !== false;
 
   if (argv.help) {
     logHelpMessage(name, templates, git, builtinTools, extraTools, extraSkills);
@@ -781,9 +839,12 @@ export async function create({
       skipFiles,
     });
 
-    if (shouldInitGit) {
-      initGit(distFolder);
-    }
+    await resolveGit({
+      gitEnabled,
+      distFolder,
+      templateName,
+      onGitResolved,
+    });
 
     logNextStepsAndOutro(noteInformation, targetDir, packageManager);
     return;
@@ -825,9 +886,12 @@ export async function create({
     skipFiles: localSkipFiles,
   });
 
-  if (shouldInitGit) {
-    initGit(distFolder);
-  }
+  await resolveGit({
+    gitEnabled,
+    distFolder,
+    templateName,
+    onGitResolved,
+  });
 
   const skillsByValue = new Map(
     (extraSkills ?? []).map((extraSkill) => [extraSkill.value, extraSkill]),
