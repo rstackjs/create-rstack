@@ -9,6 +9,8 @@ dist/
 test-results
 test-temp-*
 .rslib
+.rstack/cache
+.rstack/hooks/_
 
 # IDE
 .vscode/*

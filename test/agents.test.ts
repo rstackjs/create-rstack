@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assert, beforeEach, expect, test } from '@rstest/core';
+import { assert, beforeEach, expect, test } from 'rstack/test';
 import { create, mergeAgentsFiles } from '../src';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

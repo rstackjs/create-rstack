@@ -1,5 +1,5 @@
 import * as promptsActual from '@clack/prompts' with { rstest: 'importActual' };
-import { expect, test } from '@rstest/core';
+import { expect, test } from 'rstack/test';
 import {
   checkCancel,
   create,

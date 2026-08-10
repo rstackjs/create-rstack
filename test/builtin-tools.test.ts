@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as promptsActual from '@clack/prompts' with { rstest: 'importActual' };
-import { beforeEach, expect, rs, test } from '@rstest/core';
+import { beforeEach, expect, rs, test } from 'rstack/test';
 import { create } from '../src';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
