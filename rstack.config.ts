@@ -1,18 +1,14 @@
 import { define } from 'rstack';
 
 define.lib({
-  lib: [
-    {
-      dts: {
-        bundle: true,
-      },
-      shims: {
-        esm: {
-          require: true,
-        },
-      },
+  dts: {
+    bundle: true,
+  },
+  shims: {
+    esm: {
+      require: true,
     },
-  ],
+  },
 });
 
 define.lint(async () => {
