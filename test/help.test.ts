@@ -1,6 +1,25 @@
-import { expect, test } from 'rstack/test';
+import { afterEach, expect, rs, test } from 'rstack/test';
 import { logger } from 'rslog';
 import { create } from '../src';
+
+afterEach(() => {
+  rs.restoreAllMocks();
+});
+
+test('help message uses compact, aligned output', async () => {
+  const log = rs.spyOn(logger, 'log').mockImplementation(() => {});
+
+  await create({
+    name: 'test',
+    root: '.',
+    templates: ['vanilla'],
+    getTemplateName: async () => 'vanilla',
+    builtinTools: [],
+    argv: ['node', 'test', '--help'],
+  });
+
+  expect(log.mock.calls).toMatchSnapshot();
+});
 
 test('help message includes the Git opt-out option', async () => {
   const logs: string[] = [];
@@ -26,9 +45,7 @@ test('help message includes the Git opt-out option', async () => {
     });
   }
 
-  expect(logs.join('\n')).toContain(
-    '--no-git              skip Git repository initialization',
-  );
+  expect(logs.join('\n')).toContain('--no-git');
 });
 
 test('help message hides the Git opt-out option when Git is disabled', async () => {

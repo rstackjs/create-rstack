@@ -1,0 +1,20 @@
+// Rstest Snapshot v1
+
+exports[`help message uses compact, aligned output 1`] = `
+[
+  [
+    "Usage: create-test [dir] [options]
+
+Options:
+  -h, --help                display help for command
+  -d, --dir <dir>           create project in specified directory
+  -t, --template <tpl>      specify the template to use
+  --no-git                  skip Git repository initialization
+  --override                override files in target directory
+  --package-name <name>     specify the package name
+  --template-version <ver>  specify the npm template version
+
+Available templates: vanilla",
+  ],
+]
+`;
