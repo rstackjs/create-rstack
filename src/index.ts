@@ -211,41 +211,52 @@ function logHelpMessage(
   }
 
   const hasTools = toolsList.length > 0;
-  const gitOptionLine = git
-    ? '      --no-git              skip Git repository initialization\n'
-    : '';
-  const toolsOptionLine = hasTools
-    ? '      --tools <tool>        add additional tools, comma separated\n'
-    : '';
-  const skillsOptionLine = hasSkills
-    ? '      --skill <skill>       add optional skills, comma separated\n'
-    : '';
-  const optionalToolsSection = hasTools
-    ? `
-    Optional tools:
-       ${toolsList.join(', ')}`
-    : '';
-  const optionalSkillsSection = hasSkills
-    ? `
-   Optional skills:
-      ${skillsList.join(', ')}`
-    : '';
+  const options: [flags: string, description: string][] = [
+    ['-h, --help', 'display help for command'],
+    ['-d, --dir <dir>', 'create project in specified directory'],
+    ['-t, --template <tpl>', 'specify the template to use'],
+  ];
 
-  logger.log(`
-   Usage: create-${name} [dir] [options]
+  if (git) {
+    options.push(['--no-git', 'skip Git repository initialization']);
+  }
+  if (hasTools) {
+    options.push(['--tools <tool>', 'add additional tools, comma separated']);
+  }
+  if (hasSkills) {
+    options.push(['--skill <skill>', 'add optional skills, comma separated']);
+  }
 
-   Options:
-   
-     -h, --help            display help for command
-      -d, --dir <dir>       create project in specified directory
-      -t, --template <tpl>  specify the template to use
-${gitOptionLine}${toolsOptionLine}${skillsOptionLine}      --override            override files in target directory
-      --packageName <name>  specify the package name
-      --template-version <ver>  specify the npm template version
-    
-    Available templates:
-      ${templates.join(', ')}${optionalToolsSection}${optionalSkillsSection}
-`);
+  options.push(
+    ['--override', 'override files in target directory'],
+    ['--package-name <name>', 'specify the package name'],
+    ['--template-version <ver>', 'specify the npm template version'],
+  );
+
+  const optionWidth = Math.max(...options.map(([flags]) => flags.length));
+  const optionLines = options
+    .map(
+      ([flags, description]) =>
+        `  ${flags.padEnd(optionWidth)}  ${description}`,
+    )
+    .join('\n');
+  const helpSections = [
+    `Usage: create-${name} [dir] [options]`,
+    '',
+    'Options:',
+    optionLines,
+    '',
+    `Available templates: ${templates.join(', ')}`,
+  ];
+
+  if (hasTools) {
+    helpSections.push('', `Optional tools: ${toolsList.join(', ')}`);
+  }
+  if (hasSkills) {
+    helpSections.push('', `Optional skills: ${skillsList.join(', ')}`);
+  }
+
+  logger.log(helpSections.join('\n'));
 }
 
 async function getTools(
@@ -747,6 +758,13 @@ export async function create({
    */
   argv?: string[];
 }) {
+  const argv = parseArgv(processArgv);
+
+  if (argv.help) {
+    logHelpMessage(name, templates, git, builtinTools, extraTools, extraSkills);
+    return;
+  }
+
   logger.greet(`\n◆  Create ${upperFirst(name)} Project`);
 
   const { isAgent } = await determineAgent();
@@ -757,13 +775,7 @@ export async function create({
     );
   }
 
-  const argv = parseArgv(processArgv);
   const gitEnabled = git && argv.git !== false;
-
-  if (argv.help) {
-    logHelpMessage(name, templates, git, builtinTools, extraTools, extraSkills);
-    return;
-  }
 
   const cwd = process.cwd();
   const pkgInfo = pkgFromUserAgent(process.env.npm_config_user_agent);
