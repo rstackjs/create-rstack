@@ -35,7 +35,7 @@ export {
 } from './template-manager.js';
 
 function cancelAndExit() {
-  cancel('Operation cancelled.');
+  cancel('Operation cancelled');
   process.exit(0);
 }
 
@@ -621,7 +621,7 @@ function initGit(cwd: string) {
     });
 
     if (result.exitCode === 0) {
-      log.success('Initialized Git repository.');
+      log.success('Initialized Git repository');
       return true;
     }
 
