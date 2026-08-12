@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "rstack-cli-best-practices": {
+      "source": "rstackjs/rstack-cli",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/rstack-cli-best-practices/SKILL.md",
+      "computedHash": "fa6e3305610cab62c9ec6be3f38a7dfc9917d1417bcd3dc449c46f1ccaec4a2a"
+    }
+  }
+}
