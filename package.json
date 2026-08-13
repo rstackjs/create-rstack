@@ -27,8 +27,8 @@
     "build": "rs lib",
     "check": "rs check --type-check",
     "dev": "rs lib --watch",
-    "lint": "node --run check",
-    "lint:fix": "rs lint --fix && rs fmt",
+    "format": "rs fmt",
+    "lint": "rs lint",
     "prepare": "rs setup",
     "test": "rs test",
     "bump": "npx bumpp"
