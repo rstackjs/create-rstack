@@ -31,8 +31,8 @@ jobs:
         with:
           run_install: true
 
-      - name: Run Lint
-        run: pnpm run lint
+      - name: Run Check
+        run: pnpm run check
 
       - name: Run Test
         run: pnpm run build && pnpm run test
