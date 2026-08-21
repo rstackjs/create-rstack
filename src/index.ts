@@ -19,6 +19,10 @@ import deepmerge from 'deepmerge';
 import minimist from 'minimist';
 import { color, logger } from 'rslog';
 import { x, xSync } from 'tinyexec';
+import {
+  getAgentCreateCommand,
+  replaceCreateCommand,
+} from './package-manager.js';
 import { isNpmTemplate, resolveCustomTemplate } from './template-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -80,12 +84,6 @@ function pkgFromUserAgent(userAgent: string | undefined) {
     name: pkgSpecArr[0],
     version: pkgSpecArr[1],
   };
-}
-
-function getAgentCreateCommand(name: string, packageManager: string) {
-  return packageManager === 'nub'
-    ? `nub create ${name}@latest`
-    : `npx -y create-${name}`;
 }
 
 const PACKAGE_MANAGER_FILES = [
@@ -504,27 +502,7 @@ async function runCommand(
   cwd: string,
   packageManager: string,
 ) {
-  // Replace `npm create` with the equivalent command for the detected package manager
-  if (command.startsWith('npm create ')) {
-    const createReplacements: Record<string, string> = {
-      bun: 'bun create ',
-      nub: 'nub create ',
-      pnpm: 'pnpm create ',
-      yarn: 'yarn create ',
-      deno: 'deno run -A npm:create-',
-    };
-    const replacement = createReplacements[packageManager];
-    if (replacement) {
-      command = command
-        .replace('npm create ', replacement)
-        // other package managers don't need the extra `--`
-        .replace(' -- --', ' --');
-    }
-    // Yarn v1 does not support `@latest` tag
-    if (packageManager === 'yarn') {
-      command = command.replace('@latest', '');
-    }
-  }
+  command = replaceCreateCommand(command, packageManager);
 
   const result = await x(command, [], {
     nodeOptions: {
