@@ -82,6 +82,12 @@ function pkgFromUserAgent(userAgent: string | undefined) {
   };
 }
 
+function getAgentCreateCommand(name: string, packageManager: string) {
+  return packageManager === 'nub'
+    ? `nub create ${name}@latest`
+    : `npx -y create-${name}`;
+}
+
 const PACKAGE_MANAGER_FILES = [
   { file: 'pnpm-workspace.yaml', packageManager: 'pnpm' },
 ];
@@ -502,6 +508,7 @@ async function runCommand(
   if (command.startsWith('npm create ')) {
     const createReplacements: Record<string, string> = {
       bun: 'bun create ',
+      nub: 'nub create ',
       pnpm: 'pnpm create ',
       yarn: 'yarn create ',
       deno: 'deno run -A npm:create-',
@@ -767,20 +774,21 @@ export async function create({
 
   logger.greet(`\n◆  Create ${upperFirst(name)} Project`);
 
+  const pkgInfo = pkgFromUserAgent(process.env.npm_config_user_agent);
+  const packageManager = pkgInfo ? pkgInfo.name : 'npm';
+  const templateParameters = { packageManager };
+
   const { isAgent } = await determineAgent();
   if (isAgent) {
     console.log('');
     logger.info(
-      `To create a project non-interactively, run: npx -y create-${name} <DIR> --template <TEMPLATE>`,
+      `To create a project non-interactively, run: ${getAgentCreateCommand(name, packageManager)} <DIR> --template <TEMPLATE>`,
     );
   }
 
   const gitEnabled = git && argv.git !== false;
 
   const cwd = process.cwd();
-  const pkgInfo = pkgFromUserAgent(process.env.npm_config_user_agent);
-  const packageManager = pkgInfo ? pkgInfo.name : 'npm';
-  const templateParameters = { packageManager };
 
   // No version provided, read from package.json
   if (!version) {
