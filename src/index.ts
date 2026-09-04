@@ -933,7 +933,7 @@ export async function create({
           await matchedTool.action({
             templateName,
             distFolder,
-            skipFiles: localSkipFiles,
+            skipFiles: [...localSkipFiles],
             addAgentsMdSearchDirs: (dir: string) =>
               agentsMdSearchDirs.push(dir),
           });
