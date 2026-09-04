@@ -48,6 +48,33 @@ When a local template contains `pnpm-workspace.yaml`, the file is only copied
 if the project is created with pnpm. Templates loaded from third-party npm
 packages are copied without this filtering.
 
+The toolkit automatically passes the resolved `skipFiles` list to custom
+`extraTools` actions. When an action uses `copyFolder` to copy a local tool
+template, forward the received list so the same package-manager filtering is
+applied:
+
+```ts
+import { copyFolder, create } from '@rstackjs/create-toolkit';
+
+create({
+  extraTools: [
+    {
+      value: 'storybook',
+      label: 'Storybook',
+      action: ({ distFolder, skipFiles }) => {
+        copyFolder({
+          from: storybookTemplate,
+          to: distFolder,
+          skipFiles,
+          isMergePackageJson: true,
+        });
+      },
+    },
+  ],
+  // ...other options
+});
+```
+
 ### Git Initialization
 
 By default, the toolkit initializes a Git repository after creating the

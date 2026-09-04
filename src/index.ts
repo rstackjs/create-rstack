@@ -464,6 +464,7 @@ type ExtraTool = {
   action?: (context: {
     templateName: string;
     distFolder: string;
+    skipFiles: string[];
     addAgentsMdSearchDirs: (dir: string) => void;
   }) => unknown;
   /**
@@ -932,6 +933,7 @@ export async function create({
           await matchedTool.action({
             templateName,
             distFolder,
+            skipFiles: localSkipFiles,
             addAgentsMdSearchDirs: (dir: string) =>
               agentsMdSearchDirs.push(dir),
           });
